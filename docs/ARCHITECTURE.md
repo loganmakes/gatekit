@@ -495,7 +495,9 @@ N ignored`. `runcheck.describe_empty(id, exit)` gives the detail:
 `ran no tests (<id>; exit N)` or `all tests skipped (<id>; exit N)`. The
 same rule then applies unchanged, so an all-skipped run has every effect a
 zero-test run has. Positives count tests that ran, not tests collected
-(unittest `Ran N` unless `OK (skipped=N)`, node `pass N`, playwright
+(unittest `Ran N` unless `OK (skipped=N)`, a progress line with `.`/`x`,
+or a verbose `... ok` line — a unittest skip count is not bounded by `Ran N`;
+node `pass N`, playwright
 `passed`/`flaky`, go `ok` lines except directly after `PASS`, cargo
 `test result: … N passed`). Patterns stay on one line where they open
 (`[ \t]*`, never `\s*` after `^`), so matching is linear in the output.

@@ -276,6 +276,107 @@ class TestKind(unittest.TestCase):
                              "ran no tests (explicit; exit 0)")
 
 
+#: Real unittest modules for the review cases of ADR-0022 Amendment A. Each
+#: is run with this interpreter, so the output is the runner's own.
+UNITTEST_MODULES = {
+    # (a) setUpClass raises SkipTest: one skip, nothing added to `Ran`.
+    "case_a": (
+        "import unittest\n"
+        "class Integration(unittest.TestCase):\n"
+        "    @classmethod\n"
+        "    def setUpClass(cls): raise unittest.SkipTest('no db')\n"
+        "    def test_x(self): pass\n"
+        "class Unit(unittest.TestCase):\n"
+        "    def test_real(self): pass\n"),
+    # (b) one test passes, another skips two subtests.
+    "case_b": (
+        "import unittest\n"
+        "class T(unittest.TestCase):\n"
+        "    def test_a(self): pass\n"
+        "    def test_b(self):\n"
+        "        for i in range(2):\n"
+        "            with self.subTest(i=i): self.skipTest('x')\n"),
+    # (c) one test, three subtests, one skipped and two passing.
+    "case_c": (
+        "import unittest\n"
+        "class T(unittest.TestCase):\n"
+        "    def test_a(self):\n"
+        "        for i in range(3):\n"
+        "            with self.subTest(i=i):\n"
+        "                if i == 0: self.skipTest('x')\n"),
+    # (d) every test skipped.
+    "case_d": (
+        "import unittest\n"
+        "class T(unittest.TestCase):\n"
+        "    @unittest.skip('x')\n"
+        "    def test_a(self): pass\n"
+        "    @unittest.skip('x')\n"
+        "    def test_b(self): pass\n"),
+    # (e) a setUpModule skip and nothing else.
+    "case_e": (
+        "import unittest\n"
+        "def setUpModule(): raise unittest.SkipTest('linux only')\n"
+        "class T(unittest.TestCase):\n"
+        "    def test_a(self): pass\n"),
+}
+
+
+def run_unittest(module: str, verbose: bool = False) -> "tuple[str, str, int]":
+    """Run one of `UNITTEST_MODULES` in a scratch directory."""
+    import subprocess
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(tmp, module + ".py"), "w") as handle:
+            handle.write(UNITTEST_MODULES[module])
+        argv = [sys.executable, "-m", "unittest"] + (["-v"] if verbose else []) + [module]
+        done = subprocess.run(argv, cwd=tmp, capture_output=True, text=True, timeout=60)
+    return done.stdout, done.stderr, done.returncode
+
+
+class TestRealUnittestRuns(unittest.TestCase):
+    """A skip count is not bounded by `Ran N` (setUpClass/setUpModule skips,
+    skipped subtests), so the summary alone cannot tell "all skipped"."""
+
+    def test_a_set_up_class_skip_beside_a_pass_stays_ok(self) -> None:
+        for verbose in (False, True):
+            with self.subTest(verbose=verbose):
+                out, err, code = run_unittest("case_a", verbose)
+                self.assertIn("OK (skipped=1)", err)
+                self.assertIsNone(runcheck.ran_no_tests(out, err, code))
+
+    def test_a_pass_beside_skipped_subtests_stays_ok(self) -> None:
+        for verbose in (False, True):
+            with self.subTest(verbose=verbose):
+                out, err, code = run_unittest("case_b", verbose)
+                self.assertIn("OK (skipped=2)", err)
+                self.assertIsNone(runcheck.ran_no_tests(out, err, code))
+
+    def test_every_test_skipped_is_named(self) -> None:
+        for module in ("case_d", "case_e"):
+            for verbose in (False, True):
+                with self.subTest(module=module, verbose=verbose):
+                    out, err, code = run_unittest(module, verbose)
+                    self.assertEqual(runcheck.ran_no_tests(out, err, code),
+                                     "unittest-all-skipped")
+
+    def test_a_skipped_subtest_hiding_passes_is_a_known_false_unverified(self) -> None:
+        # Documented in ADR-0022 Amendment A: unittest prints `s`, `Ran 1
+        # test`, `OK (skipped=1)` — byte for byte a run whose only test was
+        # skipped. The runner itself reports no pass, so gatekit cannot either.
+        out, err, code = run_unittest("case_c")
+        self.assertEqual(runcheck.ran_no_tests(out, err, code), "unittest-all-skipped")
+
+    def test_progress_and_verbose_lines_count_as_run(self) -> None:
+        for text in (".s\n" + "-" * 70 + "\nRan 1 test in 0.000s\n\nOK (skipped=1)\n",
+                     "sx\n" + "-" * 70 + "\nRan 1 test in 0.000s\n\nOK (skipped=1)\n",
+                     "test_real (m.Unit.test_real) ... ok\n\n" + "-" * 70 +
+                     "\nRan 1 test in 0.000s\n\nOK (skipped=1)\n",
+                     "test_x (m.T) ... expected failure\n\nRan 1 test in 0.000s\n\n"
+                     "OK (skipped=1)\n"):
+            with self.subTest(text=text):
+                self.assertIsNone(runcheck.ran_no_tests("", text, 0))
+
+
 class TestAllSkipped(unittest.TestCase):
     """ADR-0022 Amendment A: a skip and no pass is named, like zero tests."""
 

@@ -7,6 +7,7 @@
 > `/gatekit:` 명령어, 프로젝트의 `spec/`과 `.gatekit/`은 그대로 동작합니다.
 > 저장소는 이미 [gatebound/gatebound](https://github.com/gatebound/gatebound)로
 > 옮겼고, 예전 주소 `LovelyPaul/gatekit`은 이곳으로 자동 연결됩니다.
+> 프로젝트 사이트는 [gatebound.dev](https://gatebound.dev)입니다.
 > 옮기는 방법은 이름 변경과 함께 안내합니다.
 
 gatekit은 [Claude Code](https://claude.com/claude-code)에서 AI 보조 개발을

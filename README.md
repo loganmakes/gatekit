@@ -7,7 +7,8 @@ Status: 0.16.7 — early. License: MIT.
 > the `/gatekit:` commands and your projects' `spec/` and `.gatekit/` keep
 > working. The repository has already moved to
 > [gatebound/gatebound](https://github.com/gatebound/gatebound); the old
-> `LovelyPaul/gatekit` URL redirects here. A migration guide will ship with
+> `LovelyPaul/gatekit` URL redirects here, and the project site is
+> [gatebound.dev](https://gatebound.dev). A migration guide will ship with
 > the rename.
 
 gatekit is a gate-enforced harness for AI-assisted development in

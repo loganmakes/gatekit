@@ -511,6 +511,36 @@ class TestAllSkipped(unittest.TestCase):
         mixed = "ok  \tm/b\t0.02s\n--- SKIP: TestA (0.00s)\nPASS\nok  \tm/a\t0.01s\n"
         self.assertIsNone(runcheck.ran_no_tests(mixed, "", 0))
 
+    def test_cargo_benchmarks_count_as_run(self) -> None:
+        text = ("running 0 tests\n\n"
+                "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out\n\n"
+                "running 3 tests\ntest b1 ... bench:         120 ns/iter (+/- 3)\n\n"
+                "test result: ok. 0 passed; 0 failed; 0 ignored; 3 measured; 0 filtered out\n")
+        self.assertIsNone(runcheck.ran_no_tests(text, "", 0))
+
+    def test_go_a_later_package_that_passes_vetoes(self) -> None:
+        # `go test -v ./a && go test` (local directory mode, no -v): the second
+        # prints PASS then ok, which is a pass.
+        chained = ("=== RUN   TestA\n--- SKIP: TestA (0.00s)\nPASS\nok  \tm/a\t0.01s\n"
+                   "PASS\nok  \tm/b\t0.02s\n")
+        self.assertIsNone(runcheck.ran_no_tests(chained, "", 0))
+        first = ("PASS\nok  \tm/b\t0.02s\n"
+                 "=== RUN   TestA\n--- SKIP: TestA (0.00s)\nPASS\nok  \tm/a\t0.01s\n")
+        self.assertIsNone(runcheck.ran_no_tests(first, "", 0))
+        logged = ("hello from a test\nPASS\nok  \tm/b\t0.02s\n"
+                  "--- SKIP: TestA (0.00s)\nPASS\nok  \tm/a\t0.01s\n")
+        self.assertIsNone(runcheck.ran_no_tests(logged, "", 0))
+
+    def test_go_verbose_all_skipped_still_named_after_its_pass_line(self) -> None:
+        text = ("=== RUN   TestA\n=== RUN   TestA/x\n    --- SKIP: TestA/x (0.00s)\n"
+                "--- SKIP: TestA (0.00s)\nPASS\nok  \tm/a\t(cached)\n")
+        self.assertEqual(runcheck.ran_no_tests(text, "", 0), "go-all-skipped")
+
+    def test_a_pass_anywhere_vetoes_a_chained_command(self) -> None:
+        # Conservative by design: `a && b` with one side all skipped stays ok.
+        text = "==== 3 skipped in 0.01s ====\n  4 passing (9ms)\n"
+        self.assertIsNone(runcheck.ran_no_tests(text, "", 0))
+
     def test_cargo_ignored_units_and_empty_doc_tests(self) -> None:
         text = ("running 2 tests\ntest a ... ignored\ntest b ... ignored\n\n"
                 "test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out\n\n"

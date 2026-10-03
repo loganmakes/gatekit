@@ -46,12 +46,14 @@ def _signatures_path():
 
 
 def _compile_signature(sig: Any) -> Optional[tuple]:
-    """One entry as ``(id, pattern, positive, exits, kind)``, or None when
-    malformed.
+    """One entry as ``(id, pattern, positive, exits, kind, requires)``, or
+    None when malformed.
 
     Exits must be a list of integers (``true`` is not an exit code); a missing
     list means ``[0]``. ``kind`` must be a key of :data:`KIND_WORDING`; a
-    missing one means ``no_tests``.
+    missing one means ``no_tests``. ``requires``, when present, is a
+    non-empty pattern that must also match somewhere in the output (the
+    runner's own context, e.g. its header); missing means None.
     """
     if not isinstance(sig, dict):
         return None
@@ -68,9 +70,13 @@ def _compile_signature(sig: Any) -> Optional[tuple]:
     kind = sig.get("kind", DEFAULT_KIND)
     if not isinstance(kind, str) or kind not in KIND_WORDING:
         return None
+    requires = sig.get("requires")
+    if requires is not None and not (isinstance(requires, str) and requires):
+        return None
     try:
         return (sig_id, re.compile(pattern, re.MULTILINE),
-                re.compile(positive, re.MULTILINE), tuple(exits), kind)
+                re.compile(positive, re.MULTILINE), tuple(exits), kind,
+                re.compile(requires, re.MULTILINE) if requires is not None else None)
     except (re.error, TypeError, ValueError, OverflowError):
         return None
 
@@ -113,7 +119,8 @@ def strip_ansi(text: Any) -> str:
 def ran_no_tests(stdout: Any, stderr: Any, exit_code: Any) -> Optional[str]:
     """The id of the "ran no tests" signature this output matches, or None.
 
-    A match needs one signature's pattern with *exit_code* in its exits, and
+    A match needs one signature's pattern (and its ``requires`` pattern, when
+    it has one) with *exit_code* in its exits, and
     no signature's positive-count pattern anywhere in the output — so a run
     in which any test ran is never called empty. Signatures are tried in file
     order; an "all skipped" one (Amendment A) is matched the same way. ANSI
@@ -125,11 +132,11 @@ def ran_no_tests(stdout: Any, stderr: Any, exit_code: Any) -> Optional[str]:
     text = strip_ansi("%s\n%s" % (stdout or "", stderr or ""))
     if any(sig[2].search(text) for sig in sigs):
         return None
-    for sig_id, pattern, _, exits, _ in sigs:
-        if exit_code in exits and pattern.search(text):
+    for sig_id, pattern, _, exits, _, requires in sigs:
+        if exit_code in exits and pattern.search(text) and (
+                requires is None or requires.search(text)):
             return sig_id
     return None
-
 
 
 def describe_empty(sig_id: Any, exit_code: Any) -> str:

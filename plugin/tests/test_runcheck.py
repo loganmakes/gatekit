@@ -258,6 +258,18 @@ class TestKind(unittest.TestCase):
     def test_an_unknown_id_reads_as_ran_no_tests(self) -> None:
         self.assertEqual(runcheck.describe_empty("gone", 0), "ran no tests (gone; exit 0)")
 
+    def test_requires_must_also_match(self) -> None:
+        body = json.dumps({"signatures": [
+            {"id": "bad-req", "requires": 5, "pattern": "^a$", "positive": "^p$"},
+            {"id": "broken-req", "requires": "(open", "pattern": "^a$", "positive": "^p$"},
+            {"id": "empty-req", "requires": "", "pattern": "^a$", "positive": "^p$"},
+            {"id": "needs-h", "requires": "^HEADER$", "pattern": "^s$", "positive": "^p$"},
+        ]})
+        with plugin_with_signatures(body):
+            self.assertEqual([s[0] for s in runcheck._signatures()], ["needs-h"])
+            self.assertIsNone(runcheck.ran_no_tests("s", "", 0))
+            self.assertEqual(runcheck.ran_no_tests("s\n", "HEADER\n", 0), "needs-h")
+
     def test_kind_defaults_and_a_bad_kind_is_malformed(self) -> None:
         body = json.dumps({"signatures": [
             {"id": "bad-kind", "kind": "sometimes", "pattern": "^a$", "positive": "^b$"},
@@ -457,7 +469,22 @@ class TestAllSkipped(unittest.TestCase):
             "      Tests  1 expected fail | 2 skipped (3)\n", "", 0))
 
     def test_playwright_flaky_counts_as_run(self) -> None:
-        self.assertIsNone(runcheck.ran_no_tests("  1 flaky\n  2 skipped\n", "", 0))
+        text = "Running 3 tests using 1 worker\n  1 flaky\n  2 skipped\n"
+        self.assertIsNone(runcheck.ran_no_tests(text, "", 0))
+
+    def test_playwright_needs_its_own_header(self) -> None:
+        # A bare `N skipped` line from some other tool is not Playwright's.
+        self.assertIsNone(runcheck.ran_no_tests("  5 tests passed\n  2 skipped\n", "", 0))
+        self.assertIsNone(runcheck.ran_no_tests("  2 skipped\n", "", 0))
+
+    def test_playwright_list_line_and_dot_reporters(self) -> None:
+        for text in (
+                "\nRunning 3 tests using 2 workers\n\n  -  1 [chromium] › a.spec.ts:3:5 › x\n"
+                "\n  3 skipped\n",
+                "\nRunning 1 test using 1 worker\n\n  1 skipped\n",
+                "\nRunning 4 tests using 2 workers, shard 1 of 2\n°°°°\n\n  4 skipped\n"):
+            with self.subTest(text=text):
+                self.assertEqual(runcheck.ran_no_tests(text, "", 0), "playwright-all-skipped")
 
     def test_node_test_todo_only_and_tap(self) -> None:
         todo = "# tests 2\n# suites 0\n# pass 0\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 2\n"
@@ -511,6 +538,7 @@ ADVERSARIAL_OUTPUTS = (
     "ok  \tm\t" + " " * (2 * 1024 * 1024),
     "1 skipped, " * 200000,
     "--- " * 500000,
+    "Running 1 test using 1 worker\n" * 70000,
 )
 #: Per pattern per output. Linear matching takes milliseconds here; the
 #: quadratic `^\s*` form took minutes on the first output.
@@ -524,7 +552,9 @@ class TestPatternsAreLinear(unittest.TestCase):
         path = paths.plugin_root() / "spec-kit" / "no-tests-signatures.json"
         data = json.loads(path.read_text(encoding="utf-8"))
         for sig in data["signatures"]:
-            for key in ("pattern", "positive"):
+            for key in ("pattern", "positive", "requires"):
+                if key not in sig:
+                    continue
                 compiled = re.compile(sig[key], re.MULTILINE)
                 for index, text in enumerate(ADVERSARIAL_OUTPUTS):
                     with self.subTest(sig=sig["id"], key=key, output=index):

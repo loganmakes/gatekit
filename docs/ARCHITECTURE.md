@@ -483,12 +483,14 @@ documented "no tests ran" code); `pytest-deselected` (`^=*[ \t]*\d+
 deselected\b`, every test deselected) lists `[5]` only. **All skipped →
 `unverified` (ADR-0022 Amendment A).** A signature may carry `kind`:
 `"no_tests"` (default) or `"all_skipped"` (any other value makes the entry
-malformed). Each runner has an `all_skipped` entry, listed before its
+malformed). An optional `requires` pattern must also match somewhere in the
+output (non-string, empty or uncompilable → malformed); Playwright's entry
+requires its `Running N tests using M workers` header. Each runner has an `all_skipped` entry, listed before its
 zero-test entry, matching a run with at least one skip (or todo/pending)
 and no pass: pytest `N skipped[, N deselected][, N warnings] in` (expected
 failures count as run), unittest `Ran N tests` + `OK (skipped=N)` (same N)
 or `Ran 0` with skips, jest `Tests:` holding only skipped/todo, vitest
-`Tests` holding only skipped/todo, playwright a bare `N skipped` line,
+`Tests` holding only skipped/todo, playwright a bare `N skipped` line (with its header),
 node:test `pass 0`…`skipped S`/`todo T` with S+T ≥ 1, mocha `0 passing` +
 `N pending`, go a `--- SKIP:` line (`-v` only), cargo `0 passed; 0 failed;
 N ignored`. `runcheck.describe_empty(id, exit)` gives the detail:

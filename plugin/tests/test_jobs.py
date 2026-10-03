@@ -3375,6 +3375,27 @@ class TestZeroTestsIsNotAPass(JobTestCase):
         self.assertEqual(job["preflight_warnings"], [])
 
 
+    def test_all_skipped_is_unverified_and_says_so(self) -> None:
+        gate = self.run_one(emitting_gate(stdout="==== 3 skipped in 0.02s ====\n"))
+        self.assertEqual(gate["verdict"], verdict.UNVERIFIED)
+        self.assertEqual(gate["detail"], "all tests skipped (pytest-all-skipped; exit 0)")
+
+    def test_a_partial_skip_stays_ok(self) -> None:
+        gate = self.run_one(emitting_gate(stdout="==== 5 passed, 2 skipped in 0.02s ====\n"))
+        self.assertEqual(gate["verdict"], verdict.OK)
+
+    def test_preflight_does_not_skip_an_all_skipped_task(self) -> None:
+        cfg = {"build": {"execution": "host", "max_retries": 2, "parallel": 1,
+                         "task_timeout_s": 60}}
+        (self.root / ".gatekit" / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+        (self.root / "src" / "note.txt").write_text("exists", encoding="utf-8")
+        self.write_tasks(self.gate_task(emitting_gate(stdout="Tests:       3 skipped, 3 total\n")))
+        job = jobs.start(self.root)
+        self.assertNotIn("write-note", job.get("preflight_passed") or [])
+        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        self.assertNotEqual(st["state"], "passed")
+        self.assertEqual(job["preflight_warnings"], [])
+
 class TestHostExecutionFinishesJob(JobTestCase):
     """Host execution's `start()` returns immediately after handing back the
     plan, so nothing calls `_finalise_job`. Found via a real gk-trial2 retrial

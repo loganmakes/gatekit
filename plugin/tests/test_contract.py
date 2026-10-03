@@ -741,6 +741,31 @@ class TestRanNoTestsCriterion(TempProject):
         self.assertEqual(contract.execute(self.root)["criteria"][0]["verdict"], "ok")
 
 
+    def test_all_skipped_is_unverified_and_says_so(self) -> None:
+        self.write_gate({"id": "unit", "argv": emitting(
+            stderr="Ran 2 tests in 0.000s\n\nOK (skipped=2)\n")})
+        contract.derive(self.root)
+        result = contract.execute(self.root)
+        item = result["criteria"][0]
+        self.assertEqual(item["verdict"], "unverified")
+        self.assertEqual(item["detail"], "all tests skipped (unittest-all-skipped; exit 0)")
+        self.assertEqual(result["verdict"], "unverified")
+        self.assertIn("all tests skipped", result["reasons"][0])
+
+    def test_all_skipped_with_a_failing_exit_and_expected_exit_zero(self) -> None:
+        # unittest 3.12.0-3.12.1 exited 5 when every test was skipped.
+        self.write_gate({"id": "unit", "argv": emitting(
+            stderr="Ran 2 tests in 0.000s\n\nOK (skipped=2)\n", code=5)})
+        contract.derive(self.root)
+        item = contract.execute(self.root)["criteria"][0]
+        self.assertEqual(item["verdict"], "unverified")
+        self.assertIn("all tests skipped", item["detail"])
+
+    def test_a_partial_skip_stays_ok(self) -> None:
+        self.write_gate({"id": "unit", "argv": emitting(stdout="  4 passing (9ms)\n  2 pending\n")})
+        contract.derive(self.root)
+        self.assertEqual(contract.execute(self.root)["criteria"][0]["verdict"], "ok")
+
 class TestBaseline(TempProject):
     def write_tasks(self, *tasks: dict) -> None:
         body = "# Tasks\n\n" + "".join(
@@ -769,16 +794,19 @@ class TestBaseline(TempProject):
             {"id": "later", "argv": emitting(stderr=NPM_ENOENT, code=254)},
             {"id": "later-bin", "argv": ["bin/run-e2e"]},
             {"id": "no-tests", "argv": emitting(stdout="Ran 0 tests in 0.000s\n\nOK\n")},
+            {"id": "skipped", "argv": emitting(stdout="  0 passing (1ms)\n  2 pending\n")},
             {"id": "slow", "argv": emitting(sleep=5), "timeout_s": 1},
         )
         contract.derive(self.root)
         result = contract.baseline(self.root)
         self.assertEqual(self.classes(result), {
             "passes": "already_passes", "fails": "fails", "later": "not_yet_runnable",
-            "later-bin": "not_yet_runnable", "no-tests": "unverified", "slow": "unverified"})
+            "later-bin": "not_yet_runnable", "no-tests": "unverified", "skipped": "unverified",
+            "slow": "unverified"})
         by_id = {c["id"]: c for c in result["criteria"]}
         self.assertIn("shell-login", by_id["later"]["detail"])
         self.assertIn("ran no tests", by_id["no-tests"]["detail"])
+        self.assertIn("all tests skipped", by_id["skipped"]["detail"])
 
     def test_command_errors(self) -> None:
         self.write_tasks({**self.shell_task(), "write_scope": ["src/**"]})

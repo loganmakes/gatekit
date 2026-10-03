@@ -684,12 +684,13 @@ def run_gates(root, task: dict) -> dict:
         else:
             gate_verdict, detail = verdict.FAIL, "exit %d" % proc.returncode
         if gate_verdict != verdict.UNVERIFIED:
-            # ADR-0022: a runner that found nothing to run has not judged the
-            # work, whatever its exit code says. Never rounds up to `ok`.
+            # ADR-0022: a runner that found nothing to run, or skipped every
+            # test (Amendment A), has not judged the work, whatever its exit
+            # code says. Never rounds up to `ok`.
             empty = runcheck.ran_no_tests(out, err, proc.returncode)
             if empty:
                 gate_verdict = verdict.UNVERIFIED
-                detail = "ran no tests (%s; exit %d)" % (empty, proc.returncode)
+                detail = runcheck.describe_empty(empty, proc.returncode)
         results.append(
             {
                 "name": name,

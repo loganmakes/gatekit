@@ -640,9 +640,10 @@ def _run_one_raw(
 
     expect = crit.get("expect", {}) or {}
     expected_exit = expect.get("exit", 0)
-    # ADR-0022: a runner that ran no tests proved nothing, pass or fail.
+    # ADR-0022: a runner that ran no tests, or skipped every test
+    # (Amendment A), proved nothing, pass or fail.
     empty = runcheck.ran_no_tests(completed.stdout, completed.stderr, completed.returncode)
-    no_tests = f"ran no tests ({empty}; exit {completed.returncode})" if empty else ""
+    no_tests = runcheck.describe_empty(empty, completed.returncode) if empty else ""
     if completed.returncode != expected_exit:
         if no_tests and expected_exit == 0:
             result["detail"] = no_tests

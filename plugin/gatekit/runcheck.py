@@ -4,10 +4,11 @@ Two questions the gate runners ask of a finished command, kept here so that
 `jobs.run_gates`, the preflight classifier and `contract` answer them the same
 way:
 
-* **Did it run any tests?** A runner that found nothing to run often exits 0.
-  :func:`ran_no_tests` names the matching signature from
-  ``plugin/spec-kit/no-tests-signatures.json``, and the caller reports
-  ``unverified`` instead of ``ok``.
+* **Did it run any tests?** A runner that found nothing to run, or skipped
+  every test it found (Amendment A), often exits 0. :func:`ran_no_tests`
+  names the matching signature from
+  ``plugin/spec-kit/no-tests-signatures.json``, the caller reports
+  ``unverified`` instead of ``ok``, and :func:`describe_empty` words it.
 * **Is the path it could not find one a task will write?** :func:`missing_paths`
   extracts paths named as missing, :func:`relativize` maps them into the
   project, and :func:`scope_owner` names the task whose ``write_scope`` covers
@@ -31,16 +32,26 @@ from gatekit import paths
 
 SIGNATURES_FILE = "no-tests-signatures.json"
 
+#: A signature's ``kind`` (ADR-0022 Amendment A) and the detail it reads as.
+#: An absent kind is ``no_tests``; any other value makes the entry malformed.
+KIND_WORDING = {
+    "no_tests": "ran no tests",
+    "all_skipped": "all tests skipped",
+}
+DEFAULT_KIND = "no_tests"
+
 
 def _signatures_path():
     return paths.plugin_root() / "spec-kit" / SIGNATURES_FILE
 
 
 def _compile_signature(sig: Any) -> Optional[tuple]:
-    """One entry as ``(id, pattern, positive, exits)``, or None when malformed.
+    """One entry as ``(id, pattern, positive, exits, kind)``, or None when
+    malformed.
 
     Exits must be a list of integers (``true`` is not an exit code); a missing
-    list means ``[0]``.
+    list means ``[0]``. ``kind`` must be a key of :data:`KIND_WORDING`; a
+    missing one means ``no_tests``.
     """
     if not isinstance(sig, dict):
         return None
@@ -54,9 +65,12 @@ def _compile_signature(sig: Any) -> Optional[tuple]:
     if not isinstance(exits, list) or not exits or not all(
             isinstance(e, int) and not isinstance(e, bool) for e in exits):
         return None
+    kind = sig.get("kind", DEFAULT_KIND)
+    if not isinstance(kind, str) or kind not in KIND_WORDING:
+        return None
     try:
         return (sig_id, re.compile(pattern, re.MULTILINE),
-                re.compile(positive, re.MULTILINE), tuple(exits))
+                re.compile(positive, re.MULTILINE), tuple(exits), kind)
     except (re.error, TypeError, ValueError, OverflowError):
         return None
 
@@ -101,19 +115,30 @@ def ran_no_tests(stdout: Any, stderr: Any, exit_code: Any) -> Optional[str]:
 
     A match needs one signature's pattern with *exit_code* in its exits, and
     no signature's positive-count pattern anywhere in the output — so a run
-    that reports any real tests is never called empty. ANSI escapes are
-    stripped first.
+    in which any test ran is never called empty. Signatures are tried in file
+    order; an "all skipped" one (Amendment A) is matched the same way. ANSI
+    escapes are stripped first.
     """
     sigs = _signatures()
     if not sigs or not isinstance(exit_code, int) or isinstance(exit_code, bool):
         return None
     text = strip_ansi("%s\n%s" % (stdout or "", stderr or ""))
-    if any(positive.search(text) for _, _, positive, _ in sigs):
+    if any(sig[2].search(text) for sig in sigs):
         return None
-    for sig_id, pattern, _, exits in sigs:
+    for sig_id, pattern, _, exits, _ in sigs:
         if exit_code in exits and pattern.search(text):
             return sig_id
     return None
+
+
+
+def describe_empty(sig_id: Any, exit_code: Any) -> str:
+    """The detail for a result :func:`ran_no_tests` named:
+    ``ran no tests (<id>; exit N)``, or ``all tests skipped (<id>; exit N)``
+    for a signature of kind ``all_skipped``. An id no longer in the file
+    reads as ``ran no tests``."""
+    kind = next((sig[4] for sig in _signatures() if sig[0] == sig_id), DEFAULT_KIND)
+    return "%s (%s; exit %s)" % (KIND_WORDING[kind], sig_id, exit_code)
 
 
 #: Lines that name a path the command could not find. Each has one group, the

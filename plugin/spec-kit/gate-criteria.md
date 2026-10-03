@@ -68,8 +68,10 @@ Requirements:
   `contract derive`.
 - `artifacts` only for files the command genuinely produces. A declared
   artifact that does not appear is a `fail`, so do not declare aspirational ones.
-- `expect` beyond `exit` when the exit code alone can lie. A test runner that
-  reports skips still exits 0, so pin it: `"expect": {"exit": 0,
+- `expect` beyond `exit` when the exit code alone can lie. A run where every
+  test was skipped is already `unverified` (ADR-0022 Amendment A), but one
+  that skips some and passes the rest exits 0 and reads `ok`; when no skip is
+  acceptable, pin it: `"expect": {"exit": 0,
   "stdout_not_contains": ["skipped", "SKIP"]}`. `stdout_contains`,
   `stdout_regex` and the `stderr_*` forms exist too; every unknown key is a
   derive error, so spell them exactly.

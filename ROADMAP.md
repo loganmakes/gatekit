@@ -82,7 +82,6 @@ Roughly in order of how often the gap has cost time in real sessions.
 | Resume after a crash or a blocked dependency | A `blocked` task does not resume when its dependency later passes in the same job; resume is manual. | [ADR-0009](docs/decisions/ADR-0009-gate-preflight.md) |
 | Worker evidence receipts with typed blockers | A worker's report should carry what it ran and why it stopped as typed data, not prose, so a silent failure (no output, timeout) still says something. | [ADR-0021](docs/decisions/ADR-0021-host-budget-and-failure-fingerprint.md) (evidence-less failures never fingerprint) |
 | Brownfield mode | The pipeline assumes a new project; an existing codebase needs a way to gate changes without re-specifying what already exists. | no ADR yet |
-| Detect runs where every test was skipped | `3 skipped`, exit 0 proves nothing, like zero tests, but is not detected yet. | [ADR-0022](docs/decisions/ADR-0022-not-yet-runnable-zero-tests-and-gate-baseline.md) |
 | Count worker timeouts as attempts | A worker timeout returns before the attempt is recorded, although a timeout is a failure state. Known bug, low impact: it only affects builds with `execution: worker` or `--backend`; the default is `host` ([ADR-0013](docs/decisions/ADR-0013-workers-only-for-other-models.md)), where no worker runs. | [ADR-0021](docs/decisions/ADR-0021-host-budget-and-failure-fingerprint.md), [ADR-0014](docs/decisions/ADR-0014-attempts-outlive-the-job.md) |
 | Cross-process lock on `attempts.json` | Two gatekit processes updating it at once can lose an update; the stdlib lock needs Windows testing first. | [ADR-0021](docs/decisions/ADR-0021-host-budget-and-failure-fingerprint.md) |
 | More hosts | Added as each host's hook support allows the gates to actually run, not before. Codex has no `PreCompact` equivalent yet. | [ADR-0019](docs/decisions/ADR-0019-one-plugin-for-claude-app-codex-plugin-and-windows.md), [ADR-0013](docs/decisions/ADR-0013-workers-only-for-other-models.md) |
@@ -153,7 +152,7 @@ Things gatekit will not become, so that nobody spends a pull request on them.
   README·URL 갱신, 데모 녹화.
 - **나중:** 작업별 비용·토큰 추적, 실시간 작업 보기(ADR-0010), 중단 후 재개(ADR-0009),
   타입이 있는 차단 사유를 담은 워커 증거 영수증, 기존 코드베이스(브라운필드) 모드,
-  전부 건너뛴 테스트 감지(ADR-0022), 워커 타임아웃 미집계 버그(`execution: worker`·`--backend`
+  워커 타임아웃 미집계 버그(`execution: worker`·`--backend`
   빌드에만 해당, 기본값 `host`에서는 영향 없음)와 프로세스 간 잠금(ADR-0021),
   훅 지원에 맞춘 호스트 추가(ADR-0019), 개인정보 규칙을 먼저 공개한 옵트인 텔레메트리.
 - **하지 않을 것:** 스펙을 스스로 고쳐 가며 통과시키는 루프, 여러 모델의 투표 판정,

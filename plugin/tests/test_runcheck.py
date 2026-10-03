@@ -324,6 +324,47 @@ UNITTEST_MODULES = {
         "    def test_a(self): pass\n"
         "    @unittest.skip('x')\n"
         "    def test_b(self): pass\n"),
+    # (f) a passing test that logs: verbose prints `... WARNING:…` then a
+    # bare `ok` line.
+    "case_f": (
+        "import logging, sys, unittest, warnings\n"
+        "class Integration(unittest.TestCase):\n"
+        "    @classmethod\n"
+        "    def setUpClass(cls): raise unittest.SkipTest('no db')\n"
+        "    def test_x(self): pass\n"
+        "class Unit(unittest.TestCase):\n"
+        "    def test_log(self): logging.warning('computing')\n"),
+    # (g) a passing test that warns: same shape as (f).
+    "case_g": (
+        "import logging, sys, unittest, warnings\n"
+        "class Integration(unittest.TestCase):\n"
+        "    @classmethod\n"
+        "    def setUpClass(cls): raise unittest.SkipTest('no db')\n"
+        "    def test_x(self): pass\n"
+        "class Unit(unittest.TestCase):\n"
+        "    def test_warn(self): warnings.warn('old api')\n"),
+    # (h) a passing test that writes to stderr without a newline: the
+    # progress line becomes `sprogress: .`, verbose `... progress: ok`.
+    "case_h": (
+        "import logging, sys, unittest, warnings\n"
+        "class Integration(unittest.TestCase):\n"
+        "    @classmethod\n"
+        "    def setUpClass(cls): raise unittest.SkipTest('no db')\n"
+        "    def test_x(self): pass\n"
+        "class Unit(unittest.TestCase):\n"
+        "    def test_partial(self): sys.stderr.write('progress: ')\n"),
+    # (i) known false unverified: a pass, then a class whose setUpClass
+    # writes a line to stderr and skips; the last progress line holds only `s`.
+    "case_i": (
+        "import sys, unittest\n"
+        "class A(unittest.TestCase):\n"
+        "    def test_real(self): pass\n"
+        "class B(unittest.TestCase):\n"
+        "    @classmethod\n"
+        "    def setUpClass(cls):\n"
+        "        sys.stderr.write('no db here\\n')\n"
+        "        raise unittest.SkipTest('no db')\n"
+        "    def test_x(self): pass\n"),
     # (e) a setUpModule skip and nothing else.
     "case_e": (
         "import unittest\n"
@@ -370,6 +411,30 @@ class TestRealUnittestRuns(unittest.TestCase):
                     out, err, code = run_unittest(module, verbose)
                     self.assertEqual(runcheck.ran_no_tests(out, err, code),
                                      "unittest-all-skipped")
+
+    def test_a_passing_test_that_logs_warns_or_writes_stays_ok(self) -> None:
+        for module in ("case_f", "case_g", "case_h"):
+            for verbose in (False, True):
+                with self.subTest(module=module, verbose=verbose):
+                    out, err, code = run_unittest(module, verbose)
+                    self.assertIn("OK (skipped=1)", err)
+                    self.assertIsNone(runcheck.ran_no_tests(out, err, code))
+
+    def test_a_skip_that_writes_a_line_after_a_pass_is_a_known_false_unverified(self) -> None:
+        # Documented in ADR-0022 Amendment A: non-verbose prints `.no db here`
+        # then `s` on the line before the separator, and Ran 1 / skipped=1.
+        out, err, code = run_unittest("case_i")
+        self.assertEqual(runcheck.ran_no_tests(out, err, code), "unittest-all-skipped")
+        # -v shows the pass.
+        out, err, code = run_unittest("case_i", verbose=True)
+        self.assertIsNone(runcheck.ran_no_tests(out, err, code))
+
+    def test_the_summary_alone_is_not_evidence(self) -> None:
+        # Without the progress line or a verbose skip line before the
+        # separator, `Ran N` / `OK (skipped=N)` is not enough.
+        self.assertIsNone(runcheck.ran_no_tests("", "Ran 2 tests in 0.000s\n\nOK (skipped=2)\n", 0))
+        text = "sprogress: .\n" + "-" * 70 + "\nRan 1 test in 0.000s\n\nOK (skipped=1)\n"
+        self.assertIsNone(runcheck.ran_no_tests("", text, 0))
 
     def test_a_skipped_subtest_hiding_passes_is_a_known_false_unverified(self) -> None:
         # Documented in ADR-0022 Amendment A: unittest prints `s`, `Ran 1
@@ -438,12 +503,16 @@ class TestAllSkipped(unittest.TestCase):
         self.assertIsNone(runcheck.ran_no_tests("sss                [100%]\n", "", 0))
 
     def test_unittest_variants(self) -> None:
+        sep = "-" * 70
         named = (
-            ("Ran 12 tests in 0.004s\n\nOK (skipped=12)\n", 0),
-            ("Ran 2 tests in 0.000s\r\n\r\nOK (skipped=2)\r\n", 0),
-            ("Ran 0 tests in 0.000s\n\nOK (skipped=1)\n", 0),
-            ("Ran 0 tests in 0.000s\n\nNO TESTS RAN (skipped=1)\n", 5),
-            ("Ran 2 tests in 0.000s\n\nOK (skipped=2)\n", 5),
+            ("s" * 12 + "\n" + sep + "\nRan 12 tests in 0.004s\n\nOK (skipped=12)\n", 0),
+            ("ss\r\n" + sep + "\r\nRan 2 tests in 0.000s\r\n\r\nOK (skipped=2)\r\n", 0),
+            ("s\n" + sep + "\nRan 0 tests in 0.000s\n\nOK (skipped=1)\n", 0),
+            ("s\n" + sep + "\nRan 0 tests in 0.000s\n\nNO TESTS RAN (skipped=1)\n", 5),
+            ("ss\n" + sep + "\nRan 2 tests in 0.000s\n\nOK (skipped=2)\n", 5),
+            # verbose; a reason holding a quote is printed with double quotes
+            ("test_a (m.T.test_a) ... skipped \"don't\"\n\n" + sep +
+             "\nRan 1 test in 0.000s\n\nOK (skipped=1)\n", 0),
         )
         for text, code in named:
             with self.subTest(text=text):

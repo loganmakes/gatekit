@@ -743,7 +743,7 @@ class TestRanNoTestsCriterion(TempProject):
 
     def test_all_skipped_is_unverified_and_says_so(self) -> None:
         self.write_gate({"id": "unit", "argv": emitting(
-            stderr="Ran 2 tests in 0.000s\n\nOK (skipped=2)\n")})
+            stderr="ss\n" + "-" * 70 + "\nRan 2 tests in 0.000s\n\nOK (skipped=2)\n")})
         contract.derive(self.root)
         result = contract.execute(self.root)
         item = result["criteria"][0]
@@ -755,7 +755,7 @@ class TestRanNoTestsCriterion(TempProject):
     def test_all_skipped_with_a_failing_exit_and_expected_exit_zero(self) -> None:
         # unittest 3.12.0-3.12.1 exited 5 when every test was skipped.
         self.write_gate({"id": "unit", "argv": emitting(
-            stderr="Ran 2 tests in 0.000s\n\nOK (skipped=2)\n", code=5)})
+            stderr="ss\n" + "-" * 70 + "\nRan 2 tests in 0.000s\n\nOK (skipped=2)\n", code=5)})
         contract.derive(self.root)
         item = contract.execute(self.root)["criteria"][0]
         self.assertEqual(item["verdict"], "unverified")

@@ -4,6 +4,46 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.16.8 — 2026-10-04
+
+A run where every test was skipped proves nothing, like a run with no tests,
+and is now judged the same way (ADR-0022 Amendment A).
+
+### Changed
+
+- **All skipped reads `unverified`.** `3 skipped`, exit 0, used to pass a
+  gate. Nine new signatures in `spec-kit/no-tests-signatures.json` name it
+  for pytest, unittest, jest, vitest, Playwright, `node --test`, mocha,
+  `go test -v` and cargo, with the detail `all tests skipped (<id>; exit N)`.
+  It flows through the zero-test path everywhere: a task gate, preflight
+  (the task is not skipped), a contract criterion, the Stop gate and the
+  baseline. A partial skip (`5 passed, 2 skipped`) stays `ok`, and a pass
+  anywhere in a command's output keeps the whole command `ok`. The remedy
+  is to un-skip, or to run the criterion where it can run.
+- **Signatures can say what they found.** An optional `kind`
+  (`no_tests`, default, or `all_skipped`) sets the wording, and an optional
+  `requires` pattern must also match; Playwright's all-skipped entry
+  requires its own `Running N tests using M workers` header.
+- **Narrower pass patterns.** unittest, node, cargo, go and Playwright
+  positives now count tests that ran rather than tests collected. unittest
+  needs evidence of a skip right before its separator line, so a passing
+  test that logs, warns or writes to stderr never reads as skipped.
+
+### Fixed
+
+- **Quadratic signature patterns.** Five patterns opened with `^\s*`,
+  which crosses lines in multiline mode; 40,000 blank lines took 6 s and a
+  megabyte of newlines did not finish. They are linear now, with a
+  multi-megabyte timing test over every pattern.
+
+### Known limits
+
+Two unittest shapes still read `unverified` although something passed: a
+skipped subTest hiding passing subtests, and (without `-v`) a pass whose `.`
+is glued to setUpClass output. Misses, which stay `ok`: unknown runners,
+`pytest -qq`, `go test` without `-v`, unittest `--durations` on 3.12+.
+Listed in ADR-0022 Amendment A.
+
 ## 0.16.7 — 2026-10-04
 
 Small fixes from the study: one entry per command in the slash menu, a doctor

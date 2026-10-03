@@ -280,10 +280,107 @@ approved. There is no "skip after a budget-only edit" shortcut.
 - A run where every collected test is skipped (`3 skipped`, exit 0) proved
   nothing either, but it is not detected. Skips are often intentional
   (platform guards), and a rule would need per-runner wording for "all
-  skipped" versus "some skipped". Left open.
+  skipped" versus "some skipped". Left open. *Resolved by Amendment A below.*
 - The signature list is per runner, not per reporter. A custom reporter that
   prints none of these lines still passes on zero tests. Adding a signature
   is a data change.
 - `baseline.json` is not consulted by anything after approval. Whether
   `/gatekit:verify` should report criteria that `already_passes` at baseline
   and were never seen failing is left open.
+
+## Amendment A (2026-10-04, owner approval in session): a run where every test was skipped is `unverified`
+
+Resolves the first open question above.
+
+**Decision.** A run in which at least one test was skipped and none passed,
+with the exit code in the signature's `exits`, proved nothing, exactly as a
+run with zero tests proved nothing. It is `unverified` with the same
+downstream effects everywhere: the gate result and the criterion are
+`unverified`, preflight does not skip the task, the Stop gate, `contract
+run` and `/gatekit:verify` do not count the criterion as proven, and
+`contract baseline` classes it `unverified`. A partial skip (`5 passed,
+2 skipped`) stays `ok`. Zero-test behaviour is unchanged.
+
+**Mechanism: more signatures, no new branch.** Each runner gets an
+"all skipped" entry in `no-tests-signatures.json`, so `runcheck.ran_no_tests`
+and every caller handle it through the path §2 already defines. The schema
+gains one optional field, `kind`: `"no_tests"` (the default when absent) or
+`"all_skipped"`. Any other value makes the entry malformed, and it is
+skipped like any malformed entry. `kind` only chooses the detail wording,
+through `runcheck.describe_empty(id, exit)`: `ran no tests (<id>; exit N)`
+for `no_tests` (unchanged) and `all tests skipped (<id>; exit N)` for
+`all_skipped`. Signatures are tried in file order, and each runner's
+all-skipped entry comes before its zero-test entry, so a cargo run whose
+unit tests are all ignored and whose doc-tests number zero is described as
+skipped.
+
+**Positive patterns now mean "a test ran", not "tests were collected".** A
+positive anywhere still vetoes every signature. Five positives counted
+collection, which an all-skipped run also has, and are narrowed to a count of
+tests that ran:
+
+| Runner | Positive before | Positive now |
+|---|---|---|
+| unittest | `Ran N tests` (N ≥ 1) | `Ran N tests …` not followed by `OK (skipped=N)` with the same N |
+| node:test | `# tests N` or `# pass N` | `# pass N` |
+| playwright | `N passed` | `N passed` or `N flaky` (a flaky test ran and passed on retry) |
+| go | an `ok <pkg> <time>` line, or `--- PASS` | the same, except an `ok` line directly after `PASS` (that is `-v` output, whose `--- PASS` lines already speak for it) |
+| cargo | `running N tests` | `test result: <status>. N passed` or `… 0 passed; N failed` |
+
+**Per-runner rule** (exit list in brackets; every pattern is anchored at a
+line start):
+
+| Signature | Matches | Exits | Verified against |
+|---|---|---|---|
+| `pytest-all-skipped` | the summary line opens with `N skipped`, optionally followed by `, N deselected` and `, N warning(s)`, then ` in <time>` (`=== 3 skipped in 0.01s ===`, `-q`: `3 skipped in 0.01s`) | 0 | pytest 7.4.3 run locally; `_pytest/terminal.py` `KNOWN_TYPES` order (failed, passed, skipped, deselected, xfailed, xpassed, warnings, error, subtests …) |
+| `unittest-all-skipped` | `Ran N tests in …`, a blank line, `OK (skipped=N)` with the same N (a bounded backreference), or `Ran 0 tests` with `OK`/`NO TESTS RAN (skipped=M)` | 0, 5 | Python 3.13 run locally; CPython `Lib/unittest/runner.py` and `main.py` (3.12.0–3.12.1 exited 5 on all-skipped, gh-113661) |
+| `jest-all-skipped` | `Tests:` followed only by `N skipped, ` and/or `N todo, ` before `N total` | 0 | `jest-reporters/src/getSummary.ts` (order failed, skipped, todo, passed, total) |
+| `vitest-all-skipped` | `Tests` followed only by `N skipped` and/or `N todo` (joined by ` \| `) before `(N)` | 0 | `vitest/src/node/reporters/renderers/utils.ts` `getStateString` (failed, passed, expected fail, skipped, todo) |
+| `playwright-all-skipped` | a line that is only `N skipped` | 0 | `playwright/src/reporters/base.ts` summary (`  N skipped`; the duration rides on the `passed` line only) |
+| `node-test-all-skipped` | the consecutive summary lines `pass 0`, `fail 0`, `cancelled 0`, `skipped S`, `todo T` with S + T ≥ 1, `#` (TAP) or `ℹ` (spec) | 0 | node v24.7 run locally, spec and TAP reporters |
+| `mocha-all-pending` | `0 passing (…)` directly followed by `N pending` | 0 | `mocha/lib/reporters/base.js` `epilogue` (passing, pending, failing) |
+| `go-all-skipped` | a `--- SKIP:` line (any indent) | 0 | `testing/testing.go` (`--- %s: %s (%s)`, four-space indent for subtests; `PASS` printed before cmd/go's `ok` line) |
+| `cargo-all-ignored` | `test result: ok. 0 passed; 0 failed; N ignored;` | 0 | `library/test/src/formatters/pretty.rs` |
+
+mocha's all-pending run was already caught by the zero-test `mocha`
+signature (`0 passing`); the new entry only changes its wording.
+
+Expected failures count as having run, not as skipped: pytest `xfailed` and
+`xpassed`, unittest `expected failures=` and vitest `expected fail` all
+execute the test body. A pytest summary holding any of them is not matched.
+`deselected` tests were never selected, so `3 skipped, 2 deselected` is
+still all skipped. jest/vitest/node `todo` tests did not assert anything
+and count with skipped. A run with any failure exits non-zero, which no
+all-skipped signature lists.
+
+**Still undetectable** (each passes as before):
+- A runner or reporter with none of these lines (custom reporters, `pytest
+  -qq` which prints no summary, JSON reporters).
+- `go test` without `-v`: an all-skipped package prints only `ok  <pkg>
+  0.01s`, the same as a passing one. With `-v` it is detected.
+- A go parent test whose subtests all skip is reported `--- PASS` by the
+  testing package, so it counts as a pass.
+- unittest when `setUpClass` raises `SkipTest` alongside method skips: the
+  skipped count exceeds `Ran N`, and a regex cannot compare the two counts.
+  Only the equal case and `Ran 0` are matched.
+
+**Intentional platform skips now show `unverified`.** A criterion whose
+tests all skip on this machine (a Windows-only suite on macOS, a GPU test on
+a laptop) proved nothing here, and saying `ok` would be a claim gatekit
+cannot back. `unverified` is not `fail`: it does not mark the work wrong, it
+says this run could not judge it. The remedy is to un-skip, or to run the
+criterion where its tests can run.
+
+**Patterns are linear.** Five existing patterns opened with `^=*\s*` or
+`^\s*`. Under `re.MULTILINE`, `\s*` crosses newlines, so a search over many
+blank or whitespace-only lines re-scanned the rest of the output from every
+line start: 20,000 blank lines took 1.6 s for `pytest-deselected` alone, and
+the time grows with the square of the length. They now use `[ \t]*`, which
+stays on its line, and the go positive's separators are `[ \t]+`. A test runs
+every pattern over multi-megabyte outputs within a fixed bound.
+
+The signature file's hash changes, so every Stop-gate reuse record is
+re-judged once (§2, `signatures_sha256`), which is intended.
+
+**Contract changes** (`docs/ARCHITECTURE.md` §5, §10, §14): the `kind`
+field, `describe_empty`, the all-skipped rule and the narrowed positives.

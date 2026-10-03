@@ -298,8 +298,11 @@ run with zero tests proved nothing. It is `unverified` with the same
 downstream effects everywhere: the gate result and the criterion are
 `unverified`, preflight does not skip the task, the Stop gate, `contract
 run` and `/gatekit:verify` do not count the criterion as proven, and
-`contract baseline` classes it `unverified`. A partial skip (`5 passed,
-2 skipped`) stays `ok`. Zero-test behaviour is unchanged.
+`contract baseline` classes it `unverified`. A partial skip whose output
+shows a pass (`5 passed, 2 skipped`) stays `ok`; the one exception, where
+the runner's own output shows no pass although some subtests passed, is
+listed under "Known false `unverified`" below. Zero-test behaviour is
+unchanged.
 
 **Mechanism: more signatures, no new branch.** Each runner gets an
 "all skipped" entry in `no-tests-signatures.json`, so `runcheck.ran_no_tests`
@@ -321,7 +324,7 @@ tests that ran:
 
 | Runner | Positive before | Positive now |
 |---|---|---|
-| unittest | `Ran N tests` (N ≥ 1) | `Ran N tests …` not followed by `OK (skipped=N)` with the same N |
+| unittest | `Ran N tests` (N ≥ 1) | `Ran N tests …` not followed by `OK (skipped=N)` with the same N; or a progress line holding a `.` (pass) or `x` (expected failure), made only of progress characters `.sxuEF`; or a verbose `… ... ok` / `… ... expected failure` line |
 | node:test | `# tests N` or `# pass N` | `# pass N` |
 | playwright | `N passed` | `N passed` or `N flaky` (a flaky test ran and passed on retry) |
 | go | an `ok <pkg> <time>` line, or `--- PASS` | the same, except an `ok` line directly after `PASS` (that is `-v` output, whose `--- PASS` lines already speak for it) |
@@ -360,9 +363,32 @@ all-skipped signature lists.
   0.01s`, the same as a passing one. With `-v` it is detected.
 - A go parent test whose subtests all skip is reported `--- PASS` by the
   testing package, so it counts as a pass.
-- unittest when `setUpClass` raises `SkipTest` alongside method skips: the
-  skipped count exceeds `Ran N`, and a regex cannot compare the two counts.
-  Only the equal case and `Ran 0` are matched.
+- unittest when the skip count exceeds `Ran N` and nothing passed (a
+  `setUpClass` skip beside skipped methods): a regex cannot compare two
+  different counts. Only the equal case and `Ran 0` are matched.
+
+**unittest's skip count is not bounded by `Ran N`** (review finding,
+reproduced on Python 3.9 and 3.13). A `setUpClass` or `setUpModule` that
+raises `SkipTest` adds one skip and nothing to `Ran`; each skipped subtest
+adds one skip, and a test whose subtests skipped prints no `.` even when its
+other subtests passed. So `Ran 1 test` / `OK (skipped=1)` can sit beside a
+real pass (`s.`: a skipped `setUpClass` and one passing test), and the
+summary alone cannot say "all skipped". The pass shows only in the progress
+line (`.`) or, with `-v`, in a `... ok` line, so both are unittest
+positives: a run that prints a pass anywhere is never named.
+
+**Known false `unverified`.** One unittest shape is still named although
+something passed: a run whose every test that did anything had a skipped
+subtest, and none passed outright — e.g. one test with three subtests, one
+skipped. unittest prints `s`, `Ran 1 test`, `OK (skipped=1)`, byte for byte
+a run whose only test was skipped; Python 3.11+'s `-v` shows the subtest but
+3.9's does not, and pytest before 9 reports such a `TestCase` as `1
+skipped`. It is kept because the runner's own report is that nothing passed:
+gatekit judges what the run printed, and the alternative — never naming a
+unittest run whose only evidence is `s` — would give up the common case (a
+whole suite behind a platform guard) to protect a rare one. The remedy is
+the same as for any all-skipped run: run the criterion where the skipped
+subtest can run, or skip at the test level, not inside a subtest loop.
 
 **Intentional platform skips now show `unverified`.** A criterion whose
 tests all skip on this machine (a Windows-only suite on macOS, a GPU test on

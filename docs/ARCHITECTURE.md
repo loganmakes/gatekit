@@ -490,7 +490,8 @@ zero-test entry, matching a run with at least one skip (or todo/pending)
 and no pass: pytest `N skipped[, N deselected][, N warnings] in` (expected
 failures count as run), unittest `Ran N tests` + `OK (skipped=N)` (same N)
 or `Ran 0` with skips, directly after a line of only `s` or a verbose
-`skipped '…'` result and the 70-dash separator, jest `Tests:` holding only skipped/todo, vitest
+`skipped '…'` result and the 70-dash separator (so `--durations` output or
+text glued after a skip there is a miss, which stays `ok`), jest `Tests:` holding only skipped/todo, vitest
 `Tests` holding only skipped/todo, playwright a bare `N skipped` line (with its header),
 node:test `pass 0`…`skipped S`/`todo T` with S+T ≥ 1, mocha `0 passing` +
 `N pending`, go a `--- SKIP:` line (`-v` only), cargo `0 passed; 0 failed;
@@ -499,8 +500,8 @@ N ignored`. `runcheck.describe_empty(id, exit)` gives the detail:
 same rule then applies unchanged, so an all-skipped run has every effect a
 zero-test run has. Positives count tests that ran, not tests collected
 (unittest `Ran N` unless `OK (skipped=N)`, a progress line with `.`/`x`,
-or any line ending with the word `ok`/`expected failure` — a unittest skip
-count is not bounded by `Ran N`;
+or a line ending with the word `ok`/`expected failure` that is the word alone
+or holds ` ... ` before it — a unittest skip count is not bounded by `Ran N`;
 node `pass N`, playwright
 `passed`/`flaky`, go `ok` lines except directly after a `PASS` that directly
 follows a `--- SKIP:` line, cargo `test result: … N passed` or `N measured`).

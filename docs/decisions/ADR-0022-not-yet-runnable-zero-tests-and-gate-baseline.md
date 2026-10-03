@@ -328,7 +328,7 @@ tests that ran:
 
 | Runner | Positive before | Positive now |
 |---|---|---|
-| unittest | `Ran N tests` (N ≥ 1) | `Ran N tests …` not followed by `OK (skipped=N)` with the same N; or a progress line holding a `.` (pass) or `x` (expected failure), made only of progress characters `.sxuEF`; or any line that ends with the word `ok` or `expected failure` (verbose results, including the bare `ok` line unittest prints after a test's own log or warning output) |
+| unittest | `Ran N tests` (N ≥ 1) | `Ran N tests …` not followed by `OK (skipped=N)` with the same N; or a progress line holding a `.` (pass) or `x` (expected failure), made only of progress characters `.sxuEF`; or a line that ends with the word `ok` or `expected failure` and is either that word alone (the bare `ok` unittest prints after a test's own log or warning output) or holds ` ... ` before it (a verbose result, `test_x (…) ... progress: ok`) |
 | node:test | `# tests N` or `# pass N` | `# pass N` |
 | playwright | `N passed` | `N passed` or `N flaky` (a flaky test ran and passed on retry) |
 | go | an `ok <pkg> <time>` line, or `--- PASS` | the same, except an `ok` line directly after `PASS` whose `PASS` itself directly follows a `--- SKIP:` line (that is `-v` output of a package whose last test skipped; its `--- PASS` lines, if any, already speak). A `PASS`/`ok` pair after any other line, or at the start of the output, is non-verbose local-directory output and counts, so `go test -v ./a && go test` with `./a` all skipped stays `ok` |
@@ -380,6 +380,15 @@ mean guessing where each runner's output begins.
 - unittest when the skip count exceeds `Ran N` and nothing passed (a
   `setUpClass` skip beside skipped methods): a regex cannot compare two
   different counts. Only the equal case and `Ran 0` are matched.
+- unittest `--durations` (3.12+): the slowest-durations block is printed
+  between the progress line and the separator, so a run whose tests skip
+  at run time (`skipTest()` inside the test) has no skip directly before
+  the separator.
+- unittest output written after a skip and glued to the progress line
+  (e.g. a `tearDown` writing to stderr, which 3.11+ runs after a
+  `skipTest()`): the line before the separator is not only `s`.
+
+Both unittest misses fail safe: the run stays `ok` as before this amendment.
 
 **unittest's skip count is not bounded by `Ran N`** (review finding,
 reproduced on Python 3.9 and 3.13). A `setUpClass` or `setUpModule` that
@@ -399,10 +408,15 @@ that hides a pass. The summary is named only when the text directly before
 the separator is a skip: a progress line made only of `s` (non-verbose), or
 a verbose `skipped '…'` result. And three positives veto it: `Ran N` whose
 summary is not `OK (skipped=N)`, a pure progress line holding `.` or `x`,
-and any line ending with the word `ok` or `expected failure`. unittest
-writes `ok` with its own newline after a passing test in `-v`, so a verbose
-pass always ends some line with `ok`; the last positive is broad, and a
-line from another tool that ends in `ok` only makes gatekit flag less.
+and a line ending with the word `ok` or `expected failure` that is either
+that word alone or holds ` ... ` before it. unittest writes `ok` with its
+own newline after a passing test in `-v`, right after the test's
+`description ... ` and whatever the test itself wrote, so a verbose pass
+always ends either a bare `ok` line or a ` ... ` line with `ok`. The
+positive is global, so it is kept that narrow: a plain line ending in `ok`
+is often another runner's skipped test title (Playwright `-  1 … › status
+is ok`, vitest `↓ … > status is ok`, jest `○ skipped … ok`, mocha `- … ok`)
+and must not hide that runner's all-skipped run.
 
 **Known false `unverified`.** Two unittest shapes are still named although
 something passed. Both are non-verbose only unless noted.

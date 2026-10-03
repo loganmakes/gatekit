@@ -198,6 +198,47 @@ class TestRanNoTests(unittest.TestCase):
         self.assertIsNone(runcheck.ran_no_tests("# tests 05\n", "", 0))
 
 
+#: Multi-megabyte outputs shaped to make a careless pattern rescan the rest of
+#: the text from every line start (``^\s*`` crosses newlines under MULTILINE).
+ADVERSARIAL_OUTPUTS = (
+    "\n" * (2 * 1024 * 1024),
+    " \n" * (1024 * 1024),
+    "\r\n" * (1024 * 1024),
+    "=" * (2 * 1024 * 1024),
+    "Ran 1 tests in 0.000s\n" * 100000,
+    "# pass 0\n# fail 0\n# cancelled 0\n" * 60000,
+    "ok  \tm\t" + " " * (2 * 1024 * 1024),
+    "1 skipped, " * 200000,
+    "--- " * 500000,
+)
+#: Per pattern per output. Linear matching takes milliseconds here; the
+#: quadratic `^\s*` form took minutes on the first output.
+LINEAR_BOUND_S = 1.0
+
+
+class TestPatternsAreLinear(unittest.TestCase):
+    def test_every_pattern_and_positive_on_huge_output(self) -> None:
+        import re
+        import time
+        path = paths.plugin_root() / "spec-kit" / "no-tests-signatures.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for sig in data["signatures"]:
+            for key in ("pattern", "positive"):
+                compiled = re.compile(sig[key], re.MULTILINE)
+                for index, text in enumerate(ADVERSARIAL_OUTPUTS):
+                    with self.subTest(sig=sig["id"], key=key, output=index):
+                        started = time.perf_counter()
+                        compiled.search(text)
+                        self.assertLess(time.perf_counter() - started, LINEAR_BOUND_S)
+
+    def test_ran_no_tests_on_huge_output(self) -> None:
+        import time
+        text = "\n" * (4 * 1024 * 1024) + "3 skipped in 0.01s\n"
+        started = time.perf_counter()
+        runcheck.ran_no_tests(text, " \n" * (1024 * 1024), 0)
+        self.assertLess(time.perf_counter() - started, 4 * LINEAR_BOUND_S)
+
+
 NPM_ENOENT = (
     "npm error code ENOENT\n"
     "npm error syscall open\n"

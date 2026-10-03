@@ -307,10 +307,14 @@ unchanged.
 **Mechanism: more signatures, no new branch.** Each runner gets an
 "all skipped" entry in `no-tests-signatures.json`, so `runcheck.ran_no_tests`
 and every caller handle it through the path §2 already defines. The schema
-gains one optional field, `kind`: `"no_tests"` (the default when absent) or
+gains two optional fields. The first is `kind`: `"no_tests"` (the default when absent) or
 `"all_skipped"`. Any other value makes the entry malformed, and it is
 skipped like any malformed entry. `kind` only chooses the detail wording,
-through `runcheck.describe_empty(id, exit)`: `ran no tests (<id>; exit N)`
+through `runcheck.describe_empty(id, exit)`. A second optional field,
+`requires`, is a pattern that must also match somewhere in the output (a
+non-string or empty value, or one that does not compile, makes the entry
+malformed); it carries a runner's own context where its summary line alone
+is too generic. The detail wording is `ran no tests (<id>; exit N)`
 for `no_tests` (unchanged) and `all tests skipped (<id>; exit N)` for
 `all_skipped`. Signatures are tried in file order, and each runner's
 all-skipped entry comes before its zero-test entry, so a cargo run whose
@@ -339,7 +343,7 @@ line start):
 | `unittest-all-skipped` | `Ran N tests in …`, a blank line, `OK (skipped=N)` with the same N (a bounded backreference), or `Ran 0 tests` with `OK`/`NO TESTS RAN (skipped=M)` | 0, 5 | Python 3.13 run locally; CPython `Lib/unittest/runner.py` and `main.py` (3.12.0–3.12.1 exited 5 on all-skipped, gh-113661) |
 | `jest-all-skipped` | `Tests:` followed only by `N skipped, ` and/or `N todo, ` before `N total` | 0 | `jest-reporters/src/getSummary.ts` (order failed, skipped, todo, passed, total) |
 | `vitest-all-skipped` | `Tests` followed only by `N skipped` and/or `N todo` (joined by ` \| `) before `(N)` | 0 | `vitest/src/node/reporters/renderers/utils.ts` `getStateString` (failed, passed, expected fail, skipped, todo) |
-| `playwright-all-skipped` | a line that is only `N skipped` | 0 | `playwright/src/reporters/base.ts` summary (`  N skipped`; the duration rides on the `passed` line only) |
+| `playwright-all-skipped` | a line that is only `N skipped`, and (`requires`) Playwright's `Running N test(s) using M worker(s)` header somewhere in the output | 0 | `playwright/src/reporters/base.ts` summary (`  N skipped`; the duration rides on the `passed` line only) and `generateStartingMessage`, printed in `onBegin` by the list, line and dot reporters |
 | `node-test-all-skipped` | the consecutive summary lines `pass 0`, `fail 0`, `cancelled 0`, `skipped S`, `todo T` with S + T ≥ 1, `#` (TAP) or `ℹ` (spec) | 0 | node v24.7 run locally, spec and TAP reporters |
 | `mocha-all-pending` | `0 passing (…)` directly followed by `N pending` | 0 | `mocha/lib/reporters/base.js` `epilogue` (passing, pending, failing) |
 | `go-all-skipped` | a `--- SKIP:` line (any indent) | 0 | `testing/testing.go` (`--- %s: %s (%s)`, four-space indent for subtests; `PASS` printed before cmd/go's `ok` line) |

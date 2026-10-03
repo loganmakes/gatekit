@@ -681,11 +681,21 @@ class TestPatternsAreLinear(unittest.TestCase):
                         self.assertLess(time.perf_counter() - started, LINEAR_BOUND_S)
 
     def test_ran_no_tests_on_huge_output(self) -> None:
+        # Linear, not fast: doubling the output must not much more than double
+        # the time. An absolute bound failed on a slow CI runner (4.1 s for
+        # 6 MB on Python 3.9); a quadratic pattern grows ~4x per doubling.
         import time
-        text = "\n" * (4 * 1024 * 1024) + "3 skipped in 0.01s\n"
-        started = time.perf_counter()
-        runcheck.ran_no_tests(text, " \n" * (1024 * 1024), 0)
-        self.assertLess(time.perf_counter() - started, 4 * LINEAR_BOUND_S)
+
+        def timed(megabytes: int) -> float:
+            text = "\n" * (megabytes * 1024 * 1024) + "3 skipped in 0.01s\n"
+            started = time.perf_counter()
+            runcheck.ran_no_tests(text, " \n" * (megabytes * 256 * 1024), 0)
+            return time.perf_counter() - started
+
+        timed(1)  # warm the signature cache
+        small = min(timed(1) for _ in range(2))
+        large = min(timed(2) for _ in range(2))
+        self.assertLess(large, 3.0 * small + 0.05)
 
 
 NPM_ENOENT = (

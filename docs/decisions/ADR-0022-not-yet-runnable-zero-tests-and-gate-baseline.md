@@ -299,9 +299,9 @@ downstream effects everywhere: the gate result and the criterion are
 `unverified`, preflight does not skip the task, the Stop gate, `contract
 run` and `/gatekit:verify` do not count the criterion as proven, and
 `contract baseline` classes it `unverified`. A partial skip whose output
-shows a pass (`5 passed, 2 skipped`) stays `ok`; the one exception, where
-the runner's own output shows no pass although some subtests passed, is
-listed under "Known false `unverified`" below. Zero-test behaviour is
+shows a pass (`5 passed, 2 skipped`) stays `ok`; the two unittest shapes
+whose pass the output cannot be told apart from a skip are listed under
+"Known false `unverified`" below. Zero-test behaviour is
 unchanged.
 
 **Mechanism: more signatures, no new branch.** Each runner gets an
@@ -328,7 +328,7 @@ tests that ran:
 
 | Runner | Positive before | Positive now |
 |---|---|---|
-| unittest | `Ran N tests` (N ≥ 1) | `Ran N tests …` not followed by `OK (skipped=N)` with the same N; or a progress line holding a `.` (pass) or `x` (expected failure), made only of progress characters `.sxuEF`; or a verbose `… ... ok` / `… ... expected failure` line |
+| unittest | `Ran N tests` (N ≥ 1) | `Ran N tests …` not followed by `OK (skipped=N)` with the same N; or a progress line holding a `.` (pass) or `x` (expected failure), made only of progress characters `.sxuEF`; or any line that ends with the word `ok` or `expected failure` (verbose results, including the bare `ok` line unittest prints after a test's own log or warning output) |
 | node:test | `# tests N` or `# pass N` | `# pass N` |
 | playwright | `N passed` | `N passed` or `N flaky` (a flaky test ran and passed on retry) |
 | go | an `ok <pkg> <time>` line, or `--- PASS` | the same, except an `ok` line directly after `PASS` whose `PASS` itself directly follows a `--- SKIP:` line (that is `-v` output of a package whose last test skipped; its `--- PASS` lines, if any, already speak). A `PASS`/`ok` pair after any other line, or at the start of the output, is non-verbose local-directory output and counts, so `go test -v ./a && go test` with `./a` all skipped stays `ok` |
@@ -340,7 +340,7 @@ line start):
 | Signature | Matches | Exits | Verified against |
 |---|---|---|---|
 | `pytest-all-skipped` | the summary line opens with `N skipped`, optionally followed by `, N deselected` and `, N warning(s)`, then ` in <time>` (`=== 3 skipped in 0.01s ===`, `-q`: `3 skipped in 0.01s`) | 0 | pytest 7.4.3 run locally; `_pytest/terminal.py` `KNOWN_TYPES` order (failed, passed, skipped, deselected, xfailed, xpassed, warnings, error, subtests …) |
-| `unittest-all-skipped` | `Ran N tests in …`, a blank line, `OK (skipped=N)` with the same N (a bounded backreference), or `Ran 0 tests` with `OK`/`NO TESTS RAN (skipped=M)` | 0, 5 | Python 3.13 run locally; CPython `Lib/unittest/runner.py` and `main.py` (3.12.0–3.12.1 exited 5 on all-skipped, gh-113661) |
+| `unittest-all-skipped` | positive evidence that the last result was a skip, then the summary: either the progress line directly before the 70-dash separator is only `s` characters (non-verbose), or the line before the blank line and separator is a verbose skip (`… ... skipped '…'`, or a bare `skipped '…'` as Python 3.9 prints for a `setUpModule` skip); then `Ran N tests in …`, a blank line, `OK (skipped=N)` with the same N (a bounded backreference), or `Ran 0 tests` with `OK`/`NO TESTS RAN (skipped=M)` | 0, 5 | Python 3.13 run locally; CPython `Lib/unittest/runner.py` and `main.py` (3.12.0–3.12.1 exited 5 on all-skipped, gh-113661) |
 | `jest-all-skipped` | `Tests:` followed only by `N skipped, ` and/or `N todo, ` before `N total` | 0 | `jest-reporters/src/getSummary.ts` (order failed, skipped, todo, passed, total) |
 | `vitest-all-skipped` | `Tests` followed only by `N skipped` and/or `N todo` (joined by ` \| `) before `(N)` | 0 | `vitest/src/node/reporters/renderers/utils.ts` `getStateString` (failed, passed, expected fail, skipped, todo) |
 | `playwright-all-skipped` | a line that is only `N skipped`, and (`requires`) Playwright's `Running N test(s) using M worker(s)` header somewhere in the output | 0 | `playwright/src/reporters/base.ts` summary (`  N skipped`; the duration rides on the `passed` line only) and `generateStartingMessage`, printed in `onBegin` by the list, line and dot reporters |
@@ -388,19 +388,41 @@ adds one skip, and a test whose subtests skipped prints no `.` even when its
 other subtests passed. So `Ran 1 test` / `OK (skipped=1)` can sit beside a
 real pass (`s.`: a skipped `setUpClass` and one passing test), and the
 summary alone cannot say "all skipped". The pass shows only in the progress
-line (`.`) or, with `-v`, in a `... ok` line, so both are unittest
-positives: a run that prints a pass anywhere is never named.
+line (`.`) or, with `-v`, in an `ok` result. A second review found both can
+be split by the test's own output: `-v` prints `test_x (…) ... WARNING:…`
+and then `ok` on a line of its own when a passing test logs or warns
+(Django's verbosity 2 has the same shape), and a passing test that writes
+to stderr without a newline turns the progress line into `sprogress: .`.
 
-**Known false `unverified`.** One unittest shape is still named although
-something passed: a run whose every test that did anything had a skipped
-subtest, and none passed outright — e.g. one test with three subtests, one
-skipped. unittest prints `s`, `Ran 1 test`, `OK (skipped=1)`, byte for byte
+So the signature requires positive evidence instead of chasing each shape
+that hides a pass. The summary is named only when the text directly before
+the separator is a skip: a progress line made only of `s` (non-verbose), or
+a verbose `skipped '…'` result. And three positives veto it: `Ran N` whose
+summary is not `OK (skipped=N)`, a pure progress line holding `.` or `x`,
+and any line ending with the word `ok` or `expected failure`. unittest
+writes `ok` with its own newline after a passing test in `-v`, so a verbose
+pass always ends some line with `ok`; the last positive is broad, and a
+line from another tool that ends in `ok` only makes gatekit flag less.
+
+**Known false `unverified`.** Two unittest shapes are still named although
+something passed. Both are non-verbose only unless noted.
+
+1. A pass, then a skip whose own output ends in a newline, so the last
+   progress line holds only `s`: e.g. a passing test, then a class whose
+   `setUpClass` writes `no db here\n` to stderr and raises `SkipTest`.
+   unittest prints `.no db here`, `s`, `Ran 1 test`, `OK (skipped=1)`; the
+   `.` is glued to the skip's message, not on a progress line of its own.
+   With `-v` the pass's `ok` line vetoes it.
+2. A run whose every test that did anything had a skipped subtest, and none
+   passed outright — e.g. one test with three subtests, one skipped. unittest prints `s`, `Ran 1 test`, `OK (skipped=1)`, byte for byte
 a run whose only test was skipped; Python 3.11+'s `-v` shows the subtest but
 3.9's does not, and pytest before 9 reports such a `TestCase` as `1
 skipped`. It is kept because the runner's own report is that nothing passed:
 gatekit judges what the run printed, and the alternative — never naming a
 unittest run whose only evidence is `s` — would give up the common case (a
-whole suite behind a platform guard) to protect a rare one. The remedy is
+whole suite behind a platform guard) to protect a rare one. Shape 1 is
+kept for the same reason: the `.` it would need is indistinguishable from
+the first character of arbitrary output. The remedy is
 the same as for any all-skipped run: run the criterion where the skipped
 subtest can run, or skip at the test level, not inside a subtest loop.
 

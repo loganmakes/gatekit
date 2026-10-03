@@ -77,12 +77,61 @@ SIGNATURE_CASES = (
 )
 
 
+#: ADR-0022 Amendment A: (signature id, all-skipped output, its exit code,
+#: partial-skip output that also passed tests, its exit code). Outputs are
+#: the runners' real formats (see the amendment's table for the source).
+ALL_SKIPPED_CASES = (
+    ("pytest-all-skipped",
+     "collected 3 items\n\ntest_s.py sss                [100%]\n\n"
+     "============================== 3 skipped in 0.01s ==============================\n", 0,
+     "============================== 2 passed, 3 skipped in 0.01s ===================\n", 0),
+    ("unittest-all-skipped",
+     "ss\n----------------------------------------------------------------------\n"
+     "Ran 2 tests in 0.000s\n\nOK (skipped=2)\n", 0,
+     "ss.\n----------------------------------------------------------------------\n"
+     "Ran 3 tests in 0.000s\n\nOK (skipped=2)\n", 0),
+    ("jest-all-skipped",
+     "Test Suites: 1 skipped, 0 of 1 total\nTests:       3 skipped, 3 total\n", 0,
+     "Test Suites: 1 passed, 1 total\nTests:       2 skipped, 1 passed, 3 total\n", 0),
+    ("vitest-all-skipped",
+     " Test Files  1 skipped (1)\n      Tests  3 skipped (3)\n", 0,
+     " Test Files  1 passed (1)\n      Tests  1 passed | 2 skipped (3)\n", 0),
+    ("playwright-all-skipped",
+     "Running 3 tests using 1 worker\n\n  3 skipped\n", 0,
+     "Running 3 tests using 1 worker\n\n  2 skipped\n  1 passed (1.2s)\n", 0),
+    ("node-test-all-skipped",
+     "\u2139 tests 3\n\u2139 suites 0\n\u2139 pass 0\n\u2139 fail 0\n\u2139 cancelled 0\n"
+     "\u2139 skipped 3\n\u2139 todo 0\n\u2139 duration_ms 38.19\n", 0,
+     "# tests 3\n# suites 0\n# pass 1\n# fail 0\n# cancelled 0\n# skipped 2\n# todo 0\n", 0),
+    ("mocha-all-pending",
+     "\n  thing\n    - works\n\n\n  0 passing (2ms)\n  3 pending\n\n", 0,
+     "\n  0 failing\n\n  2 passing (2ms)\n  3 pending\n\n", 0),
+    ("go-all-skipped",
+     "=== RUN   TestA\n    a_test.go:5: needs linux\n--- SKIP: TestA (0.00s)\n"
+     "PASS\nok  \texample.com/m\t0.002s\n", 0,
+     "=== RUN   TestA\n--- SKIP: TestA (0.00s)\n=== RUN   TestB\n--- PASS: TestB (0.00s)\n"
+     "PASS\nok  \texample.com/m\t0.002s\n", 0),
+    ("cargo-all-ignored",
+     "running 2 tests\ntest a ... ignored\ntest b ... ignored\n\n"
+     "test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; "
+     "finished in 0.00s\n", 0,
+     "running 3 tests\ntest a ... ignored\ntest b ... ok\n\n"
+     "test result: ok. 1 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; "
+     "finished in 0.00s\n", 0),
+)
+
+
 class TestSignatureFile(unittest.TestCase):
     def test_the_data_file_lists_every_runner(self) -> None:
         path = paths.plugin_root() / "spec-kit" / "no-tests-signatures.json"
         data = json.loads(path.read_text(encoding="utf-8"))
         ids = {s["id"] for s in data["signatures"]}
-        self.assertEqual(ids, {case[0] for case in SIGNATURE_CASES})
+        self.assertEqual(ids, {case[0] for case in SIGNATURE_CASES + ALL_SKIPPED_CASES})
+        kinds = {s["id"]: s.get("kind", "no_tests") for s in data["signatures"]}
+        for case in SIGNATURE_CASES:
+            self.assertEqual(kinds[case[0]], "no_tests", case[0])
+        for case in ALL_SKIPPED_CASES:
+            self.assertEqual(kinds[case[0]], "all_skipped", case[0])
         for sig in data["signatures"]:
             self.assertTrue(sig.get("pattern") and sig.get("positive"), sig["id"])
             self.assertTrue(sig.get("exits"), sig["id"])
@@ -196,6 +245,157 @@ class TestRanNoTests(unittest.TestCase):
         self.assertIsNone(runcheck.ran_no_tests("the doc says Ran 0 tests in 0s", "", 0))
         self.assertIsNone(runcheck.ran_no_tests("we had 10 passing (4ms)", "", 0))
         self.assertIsNone(runcheck.ran_no_tests("# tests 05\n", "", 0))
+
+
+class TestKind(unittest.TestCase):
+    """ADR-0022 Amendment A: `kind` chooses the wording, nothing else."""
+
+    def test_describe_empty_words_each_kind(self) -> None:
+        self.assertEqual(runcheck.describe_empty("pytest", 5), "ran no tests (pytest; exit 5)")
+        self.assertEqual(runcheck.describe_empty("pytest-all-skipped", 0),
+                         "all tests skipped (pytest-all-skipped; exit 0)")
+
+    def test_an_unknown_id_reads_as_ran_no_tests(self) -> None:
+        self.assertEqual(runcheck.describe_empty("gone", 0), "ran no tests (gone; exit 0)")
+
+    def test_kind_defaults_and_a_bad_kind_is_malformed(self) -> None:
+        body = json.dumps({"signatures": [
+            {"id": "bad-kind", "kind": "sometimes", "pattern": "^a$", "positive": "^b$"},
+            {"id": "bad-type", "kind": 3, "pattern": "^a$", "positive": "^b$"},
+            {"id": "skips", "kind": "all_skipped", "pattern": "^s$", "positive": "^p$"},
+            {"id": "plain", "pattern": "^a$", "positive": "^p$"},
+            {"id": "explicit", "kind": "no_tests", "pattern": "^e$", "positive": "^p$"},
+        ]})
+        with plugin_with_signatures(body):
+            self.assertEqual([s[0] for s in runcheck._signatures()],
+                             ["skips", "plain", "explicit"])
+            self.assertEqual(runcheck.ran_no_tests("a", "", 0), "plain")
+            self.assertEqual(runcheck.describe_empty("skips", 0), "all tests skipped (skips; exit 0)")
+            self.assertEqual(runcheck.describe_empty("plain", 0), "ran no tests (plain; exit 0)")
+            self.assertEqual(runcheck.describe_empty("explicit", 0),
+                             "ran no tests (explicit; exit 0)")
+
+
+class TestAllSkipped(unittest.TestCase):
+    """ADR-0022 Amendment A: a skip and no pass is named, like zero tests."""
+
+    def test_each_signature_names_its_all_skipped_output(self) -> None:
+        for sig, skipped, exit_code, _partial, _partial_exit in ALL_SKIPPED_CASES:
+            with self.subTest(sig=sig):
+                self.assertEqual(runcheck.ran_no_tests(skipped, "", exit_code), sig)
+                self.assertEqual(runcheck.ran_no_tests("", skipped, exit_code), sig)
+
+    def test_a_partial_skip_is_never_named(self) -> None:
+        for sig, _skipped, _exit, partial, partial_exit in ALL_SKIPPED_CASES:
+            with self.subTest(sig=sig):
+                self.assertIsNone(runcheck.ran_no_tests(partial, "", partial_exit))
+
+    def test_a_failing_exit_is_not_named(self) -> None:
+        for sig, skipped, _exit, _partial, _partial_exit in ALL_SKIPPED_CASES:
+            with self.subTest(sig=sig):
+                self.assertIsNone(runcheck.ran_no_tests(skipped, "", 1))
+
+    def test_zero_test_output_keeps_its_signature(self) -> None:
+        for sig, zero, zero_exit, _real, _real_exit in SIGNATURE_CASES:
+            with self.subTest(sig=sig):
+                self.assertEqual(runcheck.ran_no_tests(zero, "", zero_exit), sig)
+
+    def test_prose_quoting_a_summary_does_not_count(self) -> None:
+        for text in ("we saw 3 skipped in 0.1s", "the line `Tests: 3 skipped, 3 total`",
+                     "a SKIP --- SKIP: TestA", "the 3 skipped tests",
+                     "see test result: ok. 0 passed; 0 failed; 2 ignored;"):
+            with self.subTest(text=text):
+                self.assertIsNone(runcheck.ran_no_tests(text, "", 0))
+
+    def test_pytest_variants(self) -> None:
+        for text in ("3 skipped in 0.00s\n", "2 skipped, 1 deselected in 0.00s\n",
+                     "==== 3 skipped, 2 warnings in 0.10s ====\n",
+                     "==== 1 skipped, 1 deselected, 1 warning in 61.00s (0:01:01) ====\n"):
+            with self.subTest(text=text):
+                self.assertEqual(runcheck.ran_no_tests(text, "", 0), "pytest-all-skipped")
+
+    def test_pytest_expected_failures_count_as_run(self) -> None:
+        for text in ("==== 3 skipped, 1 xfailed in 0.10s ====\n",
+                     "==== 3 skipped, 1 xpassed in 0.10s ====\n",
+                     "==== 1 xfailed in 0.10s ====\n"):
+            with self.subTest(text=text):
+                self.assertIsNone(runcheck.ran_no_tests(text, "", 0))
+
+    def test_pytest_qq_prints_no_summary_and_is_undetectable(self) -> None:
+        self.assertIsNone(runcheck.ran_no_tests("sss                [100%]\n", "", 0))
+
+    def test_unittest_variants(self) -> None:
+        named = (
+            ("Ran 12 tests in 0.004s\n\nOK (skipped=12)\n", 0),
+            ("Ran 2 tests in 0.000s\r\n\r\nOK (skipped=2)\r\n", 0),
+            ("Ran 0 tests in 0.000s\n\nOK (skipped=1)\n", 0),
+            ("Ran 0 tests in 0.000s\n\nNO TESTS RAN (skipped=1)\n", 5),
+            ("Ran 2 tests in 0.000s\n\nOK (skipped=2)\n", 5),
+        )
+        for text, code in named:
+            with self.subTest(text=text):
+                self.assertEqual(runcheck.ran_no_tests("", text, code), "unittest-all-skipped")
+        for text in ("Ran 3 tests in 0.000s\n\nOK (skipped=2, expected failures=1)\n",
+                     "Ran 22 tests in 0.000s\n\nOK (skipped=2)\n",
+                     "Ran 2 tests in 0.000s\n\nOK (skipped=22)\n",
+                     # setUpClass SkipTest: more skips than runs; documented as undetectable
+                     "Ran 2 tests in 0.000s\n\nOK (skipped=3)\n"):
+            with self.subTest(text=text):
+                self.assertIsNone(runcheck.ran_no_tests("", text, 0))
+
+    def test_jest_and_vitest_todo_counts_with_skipped(self) -> None:
+        self.assertEqual(runcheck.ran_no_tests("Tests:       2 skipped, 1 todo, 3 total\n", "", 0),
+                         "jest-all-skipped")
+        self.assertEqual(runcheck.ran_no_tests("Tests:       1 todo, 1 total\n", "", 0),
+                         "jest-all-skipped")
+        self.assertEqual(runcheck.ran_no_tests("      Tests  2 skipped | 1 todo (3)\n", "", 0),
+                         "vitest-all-skipped")
+        self.assertEqual(runcheck.ran_no_tests("      Tests 1 todo (1)\n", "", 0),
+                         "vitest-all-skipped")
+        self.assertIsNone(runcheck.ran_no_tests(
+            "      Tests  1 expected fail | 2 skipped (3)\n", "", 0))
+
+    def test_playwright_flaky_counts_as_run(self) -> None:
+        self.assertIsNone(runcheck.ran_no_tests("  1 flaky\n  2 skipped\n", "", 0))
+
+    def test_node_test_todo_only_and_tap(self) -> None:
+        todo = "# tests 2\n# suites 0\n# pass 0\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 2\n"
+        self.assertEqual(runcheck.ran_no_tests(todo, "", 0), "node-test-all-skipped")
+        nothing = "# tests 0\n# suites 1\n# pass 0\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n"
+        self.assertEqual(runcheck.ran_no_tests(nothing, "", 0), "node-test")
+
+    def test_mocha_all_pending_was_already_caught_and_is_now_worded(self) -> None:
+        text = "\n  0 passing (2ms)\n  3 pending\n\n"
+        self.assertEqual(runcheck.ran_no_tests(text, "", 0), "mocha-all-pending")
+        self.assertEqual(runcheck.ran_no_tests("\n  0 passing (1ms)\n\n", "", 0), "mocha")
+
+    def test_go_subtests_and_non_verbose(self) -> None:
+        sub = ("=== RUN   TestA\n=== RUN   TestA/x\n    --- SKIP: TestA/x (0.00s)\n"
+               "--- SKIP: TestA (0.00s)\nPASS\nok  \tm/a\t0.01s\n")
+        self.assertEqual(runcheck.ran_no_tests(sub, "", 0), "go-all-skipped")
+        # The testing package reports a parent whose subtests all skip as PASS.
+        parent = ("=== RUN   TestA\n=== RUN   TestA/x\n    --- SKIP: TestA/x (0.00s)\n"
+                  "--- PASS: TestA (0.00s)\nPASS\nok  \tm/a\t0.01s\n")
+        self.assertIsNone(runcheck.ran_no_tests(parent, "", 0))
+        # Without -v an all-skipped package prints only its ok line: undetectable.
+        self.assertIsNone(runcheck.ran_no_tests("ok  \tm/a\t0.01s\n", "", 0))
+        # Another package that ran tests (non-verbose ok line) still vetoes.
+        mixed = "ok  \tm/b\t0.02s\n--- SKIP: TestA (0.00s)\nPASS\nok  \tm/a\t0.01s\n"
+        self.assertIsNone(runcheck.ran_no_tests(mixed, "", 0))
+
+    def test_cargo_ignored_units_and_empty_doc_tests(self) -> None:
+        text = ("running 2 tests\ntest a ... ignored\ntest b ... ignored\n\n"
+                "test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out\n\n"
+                "   Doc-tests app\n\nrunning 0 tests\n\n"
+                "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out\n")
+        self.assertEqual(runcheck.ran_no_tests(text, "", 0), "cargo-all-ignored")
+
+    def test_collected_but_skipped_no_longer_vetoes_a_zero_run(self) -> None:
+        # Positives count tests that ran; a skipped unittest run beside an
+        # empty pytest run proved nothing.
+        text = "Ran 2 tests in 0.000s\n\nOK (skipped=2)\n"
+        # Signatures are tried in file order, and pytest's come first.
+        self.assertEqual(runcheck.ran_no_tests(text, "no tests ran in 0.01s\n", 0), "pytest")
 
 
 #: Multi-megabyte outputs shaped to make a careless pattern rescan the rest of

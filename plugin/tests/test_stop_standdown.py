@@ -898,6 +898,15 @@ class TestStopBudget(Project):
         self.assertEqual(result["decision"], "block")
         self.assertIn("empty: unverified", result["reason"])
 
+    def test_all_skipped_still_blocks(self) -> None:
+        self.write_contract({"id": "skips", "timeout_s": 20,
+                             "argv": [PY, "-c", "print('collected 3 items'); "
+                                      "print('==== 3 skipped in 0.01s ====')"]})
+        self.prompt(BUILD_PROMPT)
+        result = self.stop()
+        self.assertEqual(result["decision"], "block")
+        self.assertIn("skips: unverified", result["reason"])
+
     def test_contract_budget_exhaustion_is_still_unverified(self) -> None:
         # The contract's own budget (1 s) runs out before the Stop budget (120 s).
         self.write_contract(sleeping("slow", 1.5, timeout_s=5), counting("later"), budget=1)

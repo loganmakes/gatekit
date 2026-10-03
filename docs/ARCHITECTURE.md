@@ -57,7 +57,7 @@ gatekit/
 │   │   ├── lang.py        output_lang detection
 │   │   ├── verdict.py     4-state vocabulary + aggregation
 │   │   ├── contract.py    completion contract derive/validate/run/baseline
-│   │   ├── runcheck.py    "ran no tests" signatures, missing-path extraction, scope ownership (ADR-0022)
+│   │   ├── runcheck.py    "ran no tests" / "all skipped" signatures, missing-path extraction, scope ownership (ADR-0022)
 │   │   ├── approval.py    hash-anchored approvals
 │   │   ├── spec.py        spec set validation
 │   │   ├── design.py      design as data: spec/tokens.json v2, presets, blast radius (ADR-0008)
@@ -73,7 +73,7 @@ gatekit/
 │   ├── spec-kit/                        # data and reference files read by commands, not prompt prose
 │   │   ├── templates/{ko,en}/00-discovery.md, 01-prd.md, 02-screens.md, 02-design.md, 03-architecture.md, 04-tasks.md, 05-gate.md, RECOVERY.md, PROGRESS.md
 │   │   ├── heading-map.json             # canonical headings per file per language
-│   │   ├── no-tests-signatures.json     # per-runner "ran no tests" patterns (ADR-0022)
+│   │   ├── no-tests-signatures.json     # per-runner "ran no tests" / "all skipped" patterns (ADR-0022)
 │   │   ├── grading-patterns.json        # which argv files count as grading files (ADR-0023)
 │   │   ├── design-antipatterns.json     # generic-output patterns the verify evaluator checks a screenshot against (ADR-0017)
 │   │   ├── presets/design/*.json, README.md   # design presets in tokens.json v2 shape (ADR-0008)
@@ -473,15 +473,33 @@ they cannot disagree. This is how "no test was skipped" becomes a criterion
 Timeout or budget exhaustion → `unverified`, never `ok`. Missing artifact → `fail`.
 **Ran no tests → `unverified` (ADR-0022).** A criterion that would be `ok`
 (or, for a signature whose exit list holds it, exits non-zero with `expect.exit`
-0) is `unverified` with `detail = "ran no tests (<id>)"` when
+0) is `unverified` with `detail = "ran no tests (<id>; exit N)"` when
 `runcheck.ran_no_tests(stdout, stderr, exit)` names a signature from
 `plugin/spec-kit/no-tests-signatures.json`: some signature's anchored
 multiline `pattern` matches the full output with the exit code in its
-`exits`, and **no** signature's `positive` pattern (a non-zero count) matches
-anywhere. Exits are `[0]` except pytest and unittest (`[0, 5]`, their
-documented "no tests ran" code); `pytest-deselected` (`^=*\s*\d+
-deselected\b`, every test deselected) lists `[5]` only. ANSI escapes are
-stripped before matching. An unreadable signature file, or one that is not an
+`exits`, and **no** signature's `positive` pattern (a count of tests that ran) matches
+anywhere. Exits are `[0]` except `pytest`, `unittest` and `unittest-all-skipped` (`[0, 5]`, their
+documented "no tests ran" code); `pytest-deselected` (`^=*[ \t]*\d+
+deselected\b`, every test deselected) lists `[5]` only. **All skipped →
+`unverified` (ADR-0022 Amendment A).** A signature may carry `kind`:
+`"no_tests"` (default) or `"all_skipped"` (any other value makes the entry
+malformed). Each runner has an `all_skipped` entry, listed before its
+zero-test entry, matching a run with at least one skip (or todo/pending)
+and no pass: pytest `N skipped[, N deselected][, N warnings] in` (expected
+failures count as run), unittest `Ran N tests` + `OK (skipped=N)` (same N)
+or `Ran 0` with skips, jest `Tests:` holding only skipped/todo, vitest
+`Tests` holding only skipped/todo, playwright a bare `N skipped` line,
+node:test `pass 0`…`skipped S`/`todo T` with S+T ≥ 1, mocha `0 passing` +
+`N pending`, go a `--- SKIP:` line (`-v` only), cargo `0 passed; 0 failed;
+N ignored`. `runcheck.describe_empty(id, exit)` gives the detail:
+`ran no tests (<id>; exit N)` or `all tests skipped (<id>; exit N)`. The
+same rule then applies unchanged, so an all-skipped run has every effect a
+zero-test run has. Positives count tests that ran, not tests collected
+(unittest `Ran N` unless `OK (skipped=N)`, node `pass N`, playwright
+`passed`/`flaky`, go `ok` lines except directly after `PASS`, cargo
+`test result: … N passed`). Patterns stay on one line where they open
+(`[ \t]*`, never `\s*` after `^`), so matching is linear in the output.
+ANSI escapes are stripped before matching. An unreadable signature file, or one that is not an
 object with a `signatures` list, means no signatures; a malformed entry (not
 an object, a non-string `id`/`pattern`/`positive`, a pattern that does not
 compile, `exits` not a list of non-boolean integers) is skipped and the rest
@@ -493,7 +511,7 @@ contract once via `execute` (same budget; it never writes
 (`ok`), `not_yet_runnable` (a missing path, or a could-not-execute program
 path, that a `spec/04-tasks.md` `write_scope` covers), `command_error`
 (`jobs.classify_gate_result` says so, or a could-not-execute program no task
-writes), `unverified` (timeout, budget, ran no tests, or a could-not-execute
+writes), `unverified` (timeout, budget, ran no tests, all tests skipped, or a could-not-execute
 program inside `node_modules`/`.venv`/`venv` whose manifest no task writes —
 a manifest-writing task makes it `not_yet_runnable`) and `fails` (anything
 else). It runs against the pre-work tree, and anything a criterion creates
@@ -968,8 +986,8 @@ ADR-0009 adds four rules to the runner:
   it in `job.json.preflight_notices` (not a warning: a typo'd path inside a
   broad scope now starts and fails after that task). Otherwise ADR-0009's
   rules apply unchanged. `tasks` is the job's task list; without it nothing is owned.
-  A gate whose result is `unverified` for "ran no tests" (§5) is not `ok`, so
-  preflight never skips its task.
+  A gate whose result is `unverified` for "ran no tests" or "all tests
+  skipped" (§5) is not `ok`, so preflight never skips its task.
 - **Dependency gating.** A task runs only when every `depends_on` id that
   is part of the same job is `passed`; otherwise it stays `queued` with
   `detail = "waiting on <id> (<state>)"` (the state is suffixed `, gates
@@ -1345,6 +1363,7 @@ def grading_files(argv: list, root) -> list[str]         # ADR-0023: relpaths of
 def grading_hashes(argv: list, root) -> dict           # ADR-0023: {relpath: sha256} of grading_files, 1 MiB chunks
 def grading_patterns() -> dict                         # ADR-0023: {"dirs","basenames","exclude_dirs"} from grading-patterns.json
 def ran_no_tests(stdout: str, stderr: str, exit_code) -> str | None   # signature id, or None; ANSI stripped
+def describe_empty(sig_id: str, exit_code) -> str     # "ran no tests (<id>; exit N)" or, for kind all_skipped, "all tests skipped (<id>; exit N)"
 def signatures_digest() -> str | None                  # sha256 of no-tests-signatures.json, None if unreadable
 def missing_paths(text: str, argv=None) -> list[str]   # raw paths named as missing; argv admits a bare `Cannot find module` token
 def is_missing_manifest(text: str) -> bool             # npm "Could not read package.json"

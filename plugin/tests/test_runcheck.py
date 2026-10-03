@@ -541,6 +541,25 @@ class TestAllSkipped(unittest.TestCase):
         text = "Running 3 tests using 1 worker\n  1 flaky\n  2 skipped\n"
         self.assertIsNone(runcheck.ran_no_tests(text, "", 0))
 
+    def test_a_skipped_title_ending_in_ok_is_still_caught(self) -> None:
+        # unittest's `ok` positive counts only a bare `ok` line or one after
+        # ` ... `, so another runner's skipped test titled "... ok" is no pass.
+        cases = (
+            ("playwright-all-skipped",
+             "\nRunning 2 tests using 1 worker\n\n"
+             "  -  1 [chromium] \u203a a.spec.ts:3:5 \u203a status is ok\n"
+             "  -  2 [chromium] \u203a a.spec.ts:4:5 \u203a health ok\n\n  2 skipped\n"),
+            ("vitest-all-skipped",
+             " \u2193 src/a.test.ts > status is ok\n\n Test Files  1 skipped (1)\n"
+             "      Tests  1 skipped (1)\n"),
+            ("jest-all-skipped",
+             "  api\n    \u25cb skipped status is ok\n\nTests:       1 skipped, 1 total\n"),
+            ("mocha-all-pending", "  api\n    - status is ok\n\n\n  0 passing (2ms)\n  1 pending\n"),
+        )
+        for sig, text in cases:
+            with self.subTest(sig=sig):
+                self.assertEqual(runcheck.ran_no_tests(text, "", 0), sig)
+
     def test_playwright_needs_its_own_header(self) -> None:
         # A bare `N skipped` line from some other tool is not Playwright's.
         self.assertIsNone(runcheck.ran_no_tests("  5 tests passed\n  2 skipped\n", "", 0))

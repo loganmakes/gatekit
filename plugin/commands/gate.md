@@ -89,9 +89,9 @@ python3 "${CLAUDE_PLUGIN_ROOT}/bin/gatekit.py" contract baseline
 
 It prints one line per criterion: `already_passes`, `not_yet_runnable` (a
 missing path some task writes), `fails`, `command_error` or `unverified`
-(including "ran no tests"), and writes `.gatekit/baseline.json`. Exit 4 means
-a `command_error`: fix that criterion and re-run Step 4 before asking for
-approval. Everything else is information for the user, not a block.
+(including "ran no tests" and "all tests skipped"), and writes
+`.gatekit/baseline.json`. Exit 4 means a `command_error`: fix that criterion
+and re-run Step 4 before asking for approval. Everything else is information for the user, not a block.
 
 ## Step 5 — show the criteria
 

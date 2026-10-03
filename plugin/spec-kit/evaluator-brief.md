@@ -82,7 +82,9 @@ The rest of the evaluator's prompt says, in `output_lang`:
   in order. Record what you actually observed, not what should happen.
 - For each criterion and each E2E step, give one verdict from
   `ok / warn / fail / unverified`. A step you could not run is `unverified`;
-  never round it to either side.
+  never round it to either side. A test run you start by hand that ran no
+  tests, or skipped every test it found, proved nothing: `unverified`, as
+  `contract run` judges it (ADR-0022 and its Amendment A).
 - **For each screenshot criterion that came back `ok`** (ADR-0017 decision
   9 — its `artifacts` entry is a `spec/design/build-<task-id>.png`), read
   that image file and judge it, in addition to the criterion's own pass:

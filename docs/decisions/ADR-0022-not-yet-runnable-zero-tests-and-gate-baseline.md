@@ -331,8 +331,8 @@ tests that ran:
 | unittest | `Ran N tests` (N ≥ 1) | `Ran N tests …` not followed by `OK (skipped=N)` with the same N; or a progress line holding a `.` (pass) or `x` (expected failure), made only of progress characters `.sxuEF`; or a verbose `… ... ok` / `… ... expected failure` line |
 | node:test | `# tests N` or `# pass N` | `# pass N` |
 | playwright | `N passed` | `N passed` or `N flaky` (a flaky test ran and passed on retry) |
-| go | an `ok <pkg> <time>` line, or `--- PASS` | the same, except an `ok` line directly after `PASS` (that is `-v` output, whose `--- PASS` lines already speak for it) |
-| cargo | `running N tests` | `test result: <status>. N passed` or `… 0 passed; N failed` |
+| go | an `ok <pkg> <time>` line, or `--- PASS` | the same, except an `ok` line directly after `PASS` whose `PASS` itself directly follows a `--- SKIP:` line (that is `-v` output of a package whose last test skipped; its `--- PASS` lines, if any, already speak). A `PASS`/`ok` pair after any other line, or at the start of the output, is non-verbose local-directory output and counts, so `go test -v ./a && go test` with `./a` all skipped stays `ok` |
+| cargo | `running N tests` | `test result: <status>. N passed`, `… 0 passed; N failed`, or `… N measured` (benchmarks ran) |
 
 **Per-runner rule** (exit list in brackets; every pattern is anchored at a
 line start):
@@ -360,6 +360,14 @@ still all skipped. jest/vitest/node `todo` tests did not assert anything
 and count with skipped. A run with any failure exits non-zero, which no
 all-skipped signature lists.
 
+**A pass anywhere vetoes the whole command.** Positives are checked over
+the full output of the command, not per runner or per package. A chained
+command (`pytest && npm test`, `go test -v ./a ./b`) where one part skipped
+everything and another part passed is `ok`. That is conservative by design:
+a false `unverified` on a run where tests really passed is worse than a
+missed detection, and splitting the output into per-runner segments would
+mean guessing where each runner's output begins.
+
 **Still undetectable** (each passes as before):
 - A runner or reporter with none of these lines (custom reporters, `pytest
   -qq` which prints no summary, JSON reporters).
@@ -367,6 +375,8 @@ all-skipped signature lists.
   0.01s`, the same as a passing one. With `-v` it is detected.
 - A go parent test whose subtests all skip is reported `--- PASS` by the
   testing package, so it counts as a pass.
+- `go test -v -cover`: `coverage: …` sits between `PASS` and `ok`, so the
+  `ok` line counts as a pass.
 - unittest when the skip count exceeds `Ran N` and nothing passed (a
   `setUpClass` skip beside skipped methods): a regex cannot compare two
   different counts. Only the equal case and `Ran 0` are matched.

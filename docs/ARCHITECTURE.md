@@ -500,8 +500,10 @@ zero-test run has. Positives count tests that ran, not tests collected
 (unittest `Ran N` unless `OK (skipped=N)`, a progress line with `.`/`x`,
 or a verbose `... ok` line — a unittest skip count is not bounded by `Ran N`;
 node `pass N`, playwright
-`passed`/`flaky`, go `ok` lines except directly after `PASS`, cargo
-`test result: … N passed`). Patterns stay on one line where they open
+`passed`/`flaky`, go `ok` lines except directly after a `PASS` that directly
+follows a `--- SKIP:` line, cargo `test result: … N passed` or `N measured`).
+A positive anywhere in the output vetoes the whole command, so a chained
+command with one all-skipped part and one passing part stays `ok`. Patterns stay on one line where they open
 (`[ \t]*`, never `\s*` after `^`), so matching is linear in the output.
 ANSI escapes are stripped before matching. An unreadable signature file, or one that is not an
 object with a `signatures` list, means no signatures; a malformed entry (not

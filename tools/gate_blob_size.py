@@ -17,6 +17,8 @@ import json
 import pathlib
 import sys
 
+import console
+
 MAX_BYTES = 1024 * 1024
 SKIP_DIR_NAMES = {".git"}
 
@@ -49,6 +51,7 @@ def scan(root: pathlib.Path) -> list[dict]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    console.utf8_stdio()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=None)
     parser.add_argument("--json", action="store_true")

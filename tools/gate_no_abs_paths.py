@@ -26,6 +26,8 @@ import re
 import subprocess
 import sys
 
+import console
+
 PATTERN = re.compile(r"(/Users/[A-Za-z0-9_.-]+|/home/[A-Za-z0-9_.-]+|C:\\Users\\)")
 
 # .codex/ and .agents/ are the generated Codex host layer, which legitimately
@@ -126,6 +128,7 @@ def scan(root: pathlib.Path) -> list[dict]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    console.utf8_stdio()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=None)
     parser.add_argument("--json", action="store_true")

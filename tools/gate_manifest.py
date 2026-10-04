@@ -35,6 +35,8 @@ import re
 import shlex
 import sys
 
+import console
+
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+([+-][0-9A-Za-z.-]+)?$")
 CHANGELOG_HEADING_RE = re.compile(r"^##\s+(\S+)")
 PLUGIN_ROOT_TOKEN = "${CLAUDE_PLUGIN_ROOT}"
@@ -232,6 +234,7 @@ def scan(root: pathlib.Path) -> list[dict]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    console.utf8_stdio()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=None)
     parser.add_argument("--json", action="store_true")

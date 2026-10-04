@@ -212,6 +212,23 @@ class TestWholeStateDirectory(Forms):
         self.assertDenied(self.write(".gatekit/runs/contract-last.json"))
         self.assertDenied(self.bash("echo x > .gatekit/jobs/j1/status.json"))
 
+    def test_eval_files_named_like_state_files_are_writable(self) -> None:
+        # ADR-0031 decision 3. Observed on the first host run: the evaluator's
+        # `contract run --json > .gatekit/eval/contract.json` was refused by the
+        # base-name rule while `eval/run-result.json` was allowed.
+        self.allowed_after_approval([
+            "py -3 g.py contract run --json > .gatekit/eval/contract.json",
+            "echo x > .gatekit/eval/approvals.json",
+            "cd sub && echo x > ../.gatekit/eval/baseline.json",
+        ])
+
+    def test_the_base_name_rule_still_guards_what_eval_does_not_cover(self) -> None:
+        self.denied_always([
+            "echo x > .gatekit/eval/../contract.json",
+            "cd .gatekit || true; echo x > contract.json",
+            "echo x > .gatekit/contract.json",
+        ])
+
     def test_bash_writes_denied(self) -> None:
         (self.root / "sub").mkdir()
         self.denied_always((

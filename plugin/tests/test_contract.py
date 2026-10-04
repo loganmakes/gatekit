@@ -962,6 +962,115 @@ class TestBaseline(TempProject):
         self.assertIsNone(contract.reusable_last(self.root))
 
 
+#: What Playwright printed on the first host run when two contract runs raced
+#: for the webServer port (ADR-0031).
+WEBSERVER_DID_NOT_START = (
+    "[WebServer] Error: listen EADDRINUSE: address already in use :::4183\n"
+    "[WebServer]   code: 'EADDRINUSE',\n\n"
+    "Error: Process from config.webServer was not able to start. Exit code: 1\n"
+)
+
+
+class TestEnvironmentFailure(TempProject):
+    """ADR-0031 decision 1: a runner that could not start judged nothing."""
+
+    def test_it_is_unverified_and_flagged(self) -> None:
+        self.write_gate({"id": "e2e", "argv": emitting(stderr=WEBSERVER_DID_NOT_START, code=1)})
+        contract.derive(self.root)
+        crit = contract.execute(self.root)["criteria"][0]
+        self.assertEqual(crit["verdict"], "unverified")
+        self.assertTrue(crit.get("environment"))
+        self.assertIn("could not start the runner", crit["detail"])
+
+    def test_a_record_holding_one_is_not_reused(self) -> None:
+        self.write_gate({"id": "e2e", "argv": emitting(stderr=WEBSERVER_DID_NOT_START, code=1)})
+        contract.derive(self.root)
+        contract.save_last(self.root, contract.execute(self.root))
+        self.assertIsNotNone(contract.same_tree_record(self.root))
+        self.assertIsNone(contract.reusable_last(self.root))
+
+    def test_an_ordinary_failure_is_still_reused(self) -> None:
+        self.write_gate({"id": "e2e", "argv": emitting(stdout="1 failed\n", code=1)})
+        contract.derive(self.root)
+        result = contract.execute(self.root)
+        self.assertEqual(result["criteria"][0]["verdict"], "fail")
+        contract.save_last(self.root, result)
+        self.assertIsNotNone(contract.reusable_last(self.root))
+
+
+class TestOneRunAtATime(TempProject):
+    """ADR-0031 decision 2: contract runs never overlap. On the first host run
+    the evaluator's `contract run` and the Stop gate raced for one port."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.write_gate({"id": "a", "argv": emitting(stdout="ok\n")})
+        contract.derive(self.root)
+        self.lock = self.root / ".gatekit" / "runs" / "contract.lock"
+        self._saved = contract.LOCK_WAIT_S
+        contract.LOCK_WAIT_S = 0.3
+
+    def tearDown(self) -> None:
+        contract.LOCK_WAIT_S = self._saved
+        super().tearDown()
+
+    def hold(self, pid: int, started_at: float) -> None:
+        self.lock.parent.mkdir(parents=True, exist_ok=True)
+        self.lock.write_text(json.dumps({"pid": pid, "started_at": started_at}), encoding="utf-8")
+
+    def test_a_held_lock_makes_the_run_busy_and_unrecorded(self) -> None:
+        import time
+        self.hold(os.getpid(), time.time())
+        result = contract.execute(self.root)
+        self.assertEqual(result["verdict"], "unverified")
+        self.assertEqual(result["criteria"], [])
+        self.assertTrue(any(r.startswith(contract.CONTRACT_BUSY_REASON) for r in result["reasons"]))
+        contract.save_last(self.root, result)
+        self.assertIsNone(contract.load_last(self.root))
+        self.assertTrue(self.lock.exists(), "the holder's lock must not be removed")
+
+    def test_a_lock_whose_holder_is_gone_is_taken_over(self) -> None:
+        import subprocess
+        import time
+        gone = subprocess.run([PY, "-c", "import os; print(os.getpid())"],
+                              capture_output=True, text=True).stdout.strip()
+        self.hold(int(gone), time.time())
+        result = contract.execute(self.root)
+        self.assertEqual(result["verdict"], "ok")
+        self.assertFalse(self.lock.exists())
+
+    def test_an_old_lock_is_taken_over(self) -> None:
+        import time
+        self.hold(os.getpid(), time.time() - contract.LOCK_STALE_S - 5)
+        self.assertEqual(contract.execute(self.root)["verdict"], "ok")
+
+    def test_the_lock_is_released_after_a_run(self) -> None:
+        self.assertEqual(contract.execute(self.root)["verdict"], "ok")
+        self.assertFalse(self.lock.exists())
+
+    def test_two_runs_take_turns(self) -> None:
+        import threading
+        import time
+        contract.LOCK_WAIT_S = 10
+        self.write_gate({"id": "slow", "argv": emitting(stdout="ok\n", sleep=0.8)})
+        contract.derive(self.root)
+        spans = []
+
+        def run() -> None:
+            started = time.monotonic()
+            verdict_ = contract.execute(self.root)["verdict"]
+            spans.append((started, time.monotonic(), verdict_))
+
+        first = threading.Thread(target=run)
+        first.start()
+        time.sleep(0.2)
+        run()
+        first.join()
+        self.assertEqual([s[2] for s in spans], ["ok", "ok"])
+        (a_start, a_end, _), (b_start, b_end, _) = sorted(spans, key=lambda s: s[1])
+        self.assertGreaterEqual(b_end - a_end, 0.7, "the second run waited for the first")
+
+
 class TestReuseFollowsTheSignatures(TempProject):
     """A record saved under other signatures (e.g. before 0.14.0, when a
     zero-test run counted as ok) must not be reused."""

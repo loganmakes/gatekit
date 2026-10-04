@@ -121,21 +121,40 @@ ALL_SKIPPED_CASES = (
      "finished in 0.00s\n", 0),
 )
 
+#: ADR-0031: (id, output when the runner could not start, its exit, output of
+#: a run that did start and passed something, that exit).
+ENVIRONMENT_CASES = (
+    ("playwright-webserver",
+     "[WebServer] Error: listen EADDRINUSE: address already in use :::4183\n\n"
+     "Error: Process from config.webServer was not able to start. Exit code: 1\n", 1,
+     "Running 2 tests using 1 worker\n\n  1 failed\n  1 passed (3.1s)\n", 1),
+)
+
 
 class TestSignatureFile(unittest.TestCase):
     def test_the_data_file_lists_every_runner(self) -> None:
         path = paths.plugin_root() / "spec-kit" / "no-tests-signatures.json"
         data = json.loads(path.read_text(encoding="utf-8"))
         ids = {s["id"] for s in data["signatures"]}
-        self.assertEqual(ids, {case[0] for case in SIGNATURE_CASES + ALL_SKIPPED_CASES})
+        self.assertEqual(ids, {case[0] for case in
+                               SIGNATURE_CASES + ALL_SKIPPED_CASES + ENVIRONMENT_CASES})
         kinds = {s["id"]: s.get("kind", "no_tests") for s in data["signatures"]}
         for case in SIGNATURE_CASES:
             self.assertEqual(kinds[case[0]], "no_tests", case[0])
         for case in ALL_SKIPPED_CASES:
             self.assertEqual(kinds[case[0]], "all_skipped", case[0])
+        for case in ENVIRONMENT_CASES:
+            self.assertEqual(kinds[case[0]], "environment", case[0])
         for sig in data["signatures"]:
             self.assertTrue(sig.get("pattern") and sig.get("positive"), sig["id"])
             self.assertTrue(sig.get("exits"), sig["id"])
+
+    def test_each_environment_signature_matches_only_its_failure(self) -> None:
+        for sig, failed, failed_exit, started, started_exit in ENVIRONMENT_CASES:
+            with self.subTest(sig=sig):
+                self.assertEqual(runcheck.ran_no_tests("", failed, failed_exit), sig)
+                self.assertIsNone(runcheck.ran_no_tests(started, "", started_exit))
+                self.assertIsNone(runcheck.ran_no_tests("", failed, 0))
 
     def test_malformed_files_never_raise(self) -> None:
         cases = (
@@ -255,6 +274,20 @@ class TestKind(unittest.TestCase):
         self.assertEqual(runcheck.describe_empty("pytest", 5), "ran no tests (pytest; exit 5)")
         self.assertEqual(runcheck.describe_empty("pytest-all-skipped", 0),
                          "all tests skipped (pytest-all-skipped; exit 0)")
+
+    def test_a_webserver_that_did_not_start_is_an_environment_failure(self) -> None:
+        # ADR-0031 decision 1, the output of the first host run's collision.
+        out = ("[WebServer] Error: listen EADDRINUSE: address already in use :::4183\n\n"
+               "Error: Process from config.webServer was not able to start. Exit code: 1\n")
+        sig = runcheck.ran_no_tests("", out, 1)
+        self.assertEqual(sig, "playwright-webserver")
+        self.assertEqual(runcheck.signature_kind(sig), "environment")
+        self.assertEqual(runcheck.describe_empty(sig, 1),
+                         "could not start the runner (playwright-webserver; exit 1)")
+        # A run in which a test passed was not blocked by its runner.
+        self.assertIsNone(runcheck.ran_no_tests("  3 passed (2.1s)\n", out, 1))
+        self.assertEqual(runcheck.signature_kind("pytest"), "no_tests")
+        self.assertEqual(runcheck.signature_kind("gone"), "no_tests")
 
     def test_an_unknown_id_reads_as_ran_no_tests(self) -> None:
         self.assertEqual(runcheck.describe_empty("gone", 0), "ran no tests (gone; exit 0)")

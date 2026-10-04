@@ -24,7 +24,28 @@ SUBCOMMANDS = {
 }
 
 
+def _utf8_stdio() -> None:
+    """Print UTF-8 regardless of the console's code page.
+
+    A Windows console frequently reports cp1252 (and PowerShell's default
+    output encoding is not UTF-8), while every gatekit message may carry Korean
+    text or an em dash. Without this, ``doctor``, ``spec validate``,
+    ``contract derive`` and ``install`` all died with ``UnicodeEncodeError`` on
+    a windows-latest fresh clone. Characters the console still cannot show are
+    replaced, never raised: a diagnosis must print.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):  # closed or detached stream: nothing to fix
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _utf8_stdio()
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv[0] in ("-h", "--help", "help"):
         print("usage: python3 -m gatekit <subcommand> [args]\n")

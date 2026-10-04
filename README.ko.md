@@ -47,8 +47,12 @@ gatekit은 [Claude Code](https://claude.com/claude-code)에서 AI 보조 개발�
 - **유료 플랜의 Claude Code** — Claude Code는 무료 플랜에 포함되지 않습니다.
   또는 Codex 앱·CLI([Codex](#codex-앱과-cli) 참고).
 - **Python 3.9 이상**, `python3`·`python`·`py -3` 중 하나로 실행되면
-  됩니다 — 훅이 이 순서로 차례대로 시도합니다. 그 외에 필요한 것은
-  없습니다 — gatekit은 표준 라이브러리만 쓰고 `pip install` 단계가 없습니다.
+  됩니다 — 훅이 이 순서로 각 이름을 확인한 뒤 첫 진짜 파이썬으로 실행합니다.
+  Windows에서는 직접 설치해야 합니다(`winget install Python.Python.3.12`).
+  Windows가 기본으로 깔아 두는 `python`/`python3`는 Microsoft Store 안내용
+  자리표시자이지 파이썬이 아니며, `doctor`가 보이면 경고합니다. 그 외에
+  필요한 것은 없습니다 — gatekit은 표준 라이브러리만 쓰고 `pip install`
+  단계가 없습니다.
 - **Windows (미리보기).** 같은 릴리스에서 네이티브 Windows를 지원하지만,
   아직 실제 세션을 끝까지 돌려본 사용자가 없습니다. CI는 `windows-latest`에서
   파이썬 코드가 도는 것까지만 증명하고, 호스트가 훅을 실제로 부르는지는

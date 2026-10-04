@@ -83,7 +83,10 @@ enforcement, every hook exits 0 on internal error, the verdict words.
    a. Every hook command tries interpreters in order:
       `python3 "…" || python "…" || py -3 "…"`. The form is valid in bash,
       sh and CMD; a gate always exits 0, so the chain only advances when an
-      interpreter is missing.
+      interpreter is missing. **Superseded by ADR-0030 (2026-10-04):** the
+      Store placeholder is not missing — it prints `Python` to stdout and
+      exits non-zero, so the chain advanced but the hook's stdout was no
+      longer JSON. Each attempt is now guarded by a silent probe.
    b. `hookio` reads stdin and writes stdout as UTF-8 regardless of locale.
    c. `paths.expand_argv` also resolves `argv[0]` through `shutil.which`
       when it is a bare name, so `npm`/`npx` find `npm.cmd`/`npx.cmd`

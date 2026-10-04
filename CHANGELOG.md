@@ -4,6 +4,47 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.16.9 — 2026-10-04
+
+Two Windows findings from running a fresh clone where a user would: on the
+`windows-latest` runner and on an owner's Windows 10 PC with a Korean user
+folder (ADR-0030).
+
+### Fixed
+
+- Hooks could silently stop enforcing on a stock Windows. `python3` and
+  `python` there are Microsoft Store placeholders that print `Python` to
+  stdout and exit non-zero; the old `a || b || c` chain fell through to
+  `py -3` as designed, but the placeholders' output prefixed the gate's JSON
+  and Claude Code dropped the decision. Every hook command now probes a
+  name silently (`-c "import sys;sys.exit(sys.version_info<(3,9))"`) and
+  runs the gate only under a proven Python 3.9+; the Codex layer generates
+  the same form (`hosts.hook_command`). A regression test reproduces the
+  placeholder with a shell stub.
+- The CLI crashed with `UnicodeEncodeError` on a console that reports
+  cp1252 (`doctor`, `spec validate`, `contract derive`, `install`): stdout
+  and stderr are now UTF-8 with replacement, so a diagnosis always prints.
+
+### Added
+
+- `doctor`'s python axis warns when `python3`/`python` on PATH are the Store
+  placeholders and prints the fix.
+- `tools/smoke_fresh_clone.py` and the manual `fresh-clone-smoke` workflow:
+  clone the published repository, set up `examples/memo-board` under
+  `문서 테스트\my app`, and drive doctor, spec validate, contract derive and
+  approve, every hook through Git Bash as hooks.json invokes it, the
+  Playwright contract, a host-mode build and the Codex layer install; each
+  step is `ok`, `fail` or `unverified` and the run continues.
+
+### Docs
+
+- Python is listed as a prerequisite to install on Windows, with the
+  placeholder named (README, README.ko, manual 02).
+- Manual 02 gains "Windows에서 처음부터": the PowerShell steps a Windows user
+  needs before any gatekit command — Git, Python and Claude Code via
+  `winget`/`irm`, a new window, login, then the plugin — as walked on the
+  owner's PC.
+
 ## 0.16.8 — 2026-10-04
 
 A run where every test was skipped proves nothing, like a run with no tests,

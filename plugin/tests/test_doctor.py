@@ -784,3 +784,31 @@ class TestCli(DoctorTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPythonAxisStorePlaceholder(unittest.TestCase):
+    """ADR-0030 decision 3: name the Microsoft Store placeholder on PATH."""
+
+    def _which(self, table):
+        import shutil as _sh
+        original = _sh.which
+        _sh.which = lambda name, *a, **k: table.get(name)
+        self.addCleanup(setattr, _sh, "which", original)
+
+    def test_placeholders_on_path_warn_and_name_the_fix(self) -> None:
+        self._which({"python3": r"D:\Local\Microsoft\WindowsApps\python3.exe",
+                     "python": r"D:\Local\Microsoft\WindowsApps\python.exe",
+                     "py": r"C:\Windows\py.exe"})
+        result = doctor.axis_python(pathlib.Path("."))
+        self.assertEqual(result["verdict"], verdict.WARN)
+        self.assertIn("python3", result["detail"])
+        self.assertIn("python", result["detail"])
+        self.assertIn("Store", result["detail"])
+        self.assertTrue(result["fix"])
+
+    def test_real_interpreters_stay_ok(self) -> None:
+        self._which({"python3": "/usr/bin/python3", "python": "/usr/bin/python"})
+        result = doctor.axis_python(pathlib.Path("."))
+        self.assertEqual(result["verdict"], verdict.OK)
+        self.assertEqual(result["fix"], "")
+

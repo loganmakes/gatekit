@@ -65,6 +65,29 @@ class TestDetect(unittest.TestCase):
         self.assertEqual(lang.detect("README.md 읽어줘"), "ko")
         self.assertEqual(lang.detect("`user_id` 컬럼 추가"), "ko")
 
+    def test_a_prompt_ending_in_a_korean_predicate_is_ko(self) -> None:
+        # Observed on 0.16.8: each flipped a Korean session to English. Plain
+        # English command words are not identifiers, and a Hangul syllable
+        # weighs one letter against a whole English word.
+        for text in ("응 spec validate 돌려줘", "npm install 해줘", "npm install 해줘!",
+                     "README update 부탁해요", "run the e2e suite 해"):
+            with self.subTest(text=text):
+                self.assertEqual(lang.detect_prompt(text), "ko")
+
+    def test_an_english_prompt_ending_in_a_korean_word_stays_en(self) -> None:
+        # The sentence must end in a Korean predicate, not just a Korean word.
+        for text in ("Rename the board title to 메모", "Use the 한글 font",
+                     "please translate 안녕", "The heading says 완료 게이트",
+                     "Implement the authentication middleware carefully 로그"):
+            with self.subTest(text=text):
+                self.assertEqual(lang.detect_prompt(text), "en")
+
+    def test_detect_prompt_keeps_every_letter_rule_verdict_of_ko(self) -> None:
+        for text in ("로그인 화면을 만들어줘", "로그인화면 auth", "가나다abcdefg",
+                     "src/hello.ts 만들어줘", "안녕하세요 world."):
+            with self.subTest(text=text):
+                self.assertEqual(lang.detect_prompt(text), lang.detect(text))
+
     def test_english_around_a_path_stays_english(self) -> None:
         self.assertEqual(lang.detect("please create src/hello.ts now"), "en")
         self.assertEqual(lang.detect("make src/hello.ts"), "en")

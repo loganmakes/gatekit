@@ -326,7 +326,7 @@ def handle(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     # <command-args> content counts.
     signal = language_signal(text)
     if lang.carries_signal(signal):
-        led.set_output_lang(lang.detect(signal), source="prompt")
+        led.set_output_lang(lang.detect_prompt(signal), source="prompt")
     elif led.data.get("lang_source") != "prompt":
         # ADR-0026: no prompt has said anything yet — a bare `/gatekit:build`
         # left a Korean project reporting in English. The spec the user wrote

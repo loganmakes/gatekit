@@ -65,7 +65,7 @@ that matter into things a hook enforces:
 ## Install
 
 ```
-/plugin marketplace add https://github.com/LovelyPaul/gatekit
+/plugin marketplace add https://github.com/gatebound/gatebound
 /plugin install gatekit@gatekit
 ```
 
@@ -74,7 +74,7 @@ are picked up.
 
 **Claude desktop app.** Plugins work there too, and hooks run as in the CLI:
 click **+ → Plugins → Add plugin**, add the marketplace
-`https://github.com/LovelyPaul/gatekit`, install `gatekit`, then open *your
+`https://github.com/gatebound/gatebound`, install `gatekit`, then open *your
 own project folder*. A plugin installed at user scope in the terminal is
 already available in the app, and the other way round. Opening the gatekit
 repository itself as the app's project is not an install: the model can read
@@ -90,7 +90,7 @@ business the first time you run a `/gatekit:` command in it.
 Codex installs this same plugin from the same marketplace:
 
 ```
-codex plugin marketplace add LovelyPaul/gatekit
+codex plugin marketplace add gatebound/gatebound
 codex plugin add gatekit@gatekit
 ```
 
@@ -105,8 +105,8 @@ upgrade. `$gatekit-doctor` reports the plugin's hooks as `warn` until then.
 Projects set up with the older generated layer keep working:
 
 ```
-git clone https://github.com/LovelyPaul/gatekit
-python3 "gatekit/plugin/bin/gatekit.py" install --host codex
+git clone https://github.com/gatebound/gatebound
+python3 "gatebound/plugin/bin/gatekit.py" install --host codex
 ```
 
 writes `.codex/hooks.json`, one skill per command under

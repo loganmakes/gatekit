@@ -3,7 +3,7 @@
 ## Install
 
 ```
-/plugin marketplace add https://github.com/LovelyPaul/gatekit
+/plugin marketplace add https://github.com/gatebound/gatebound
 /plugin install gatekit@gatekit
 ```
 

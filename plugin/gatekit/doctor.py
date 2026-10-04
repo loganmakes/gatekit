@@ -14,11 +14,12 @@ import shutil
 import socket
 import subprocess
 import sys
+from typing import Optional
 
 from gatekit import names, paths, verdict
 
 #: Gate scripts that must exist and be non-empty for axis 1.
-GATE_SCRIPTS = ("prompt.py", "write.py", "bash.py", "powershell.py", "spawn.py", "question.py",
+GATE_SCRIPTS = ("prompt.py", "write.py", "bash.py", "powershell.py", "skill.py", "spawn.py", "question.py",
                 "stop.py")
 
 #: Hook events axis 2 expects to find registered in the running install.
@@ -139,7 +140,44 @@ def _dual_plugin(root, installed):
     return None
 
 
+def _latest_ledger(state) -> Optional[dict]:
+    """The most recently updated session ledger under *state*, or None."""
+    try:
+        ledgers = [p for p in (state / "runs").glob("*.json") if p.name != "contract-last.json"]
+        if not ledgers:
+            return None
+        latest = max(ledgers, key=lambda p: p.stat().st_mtime)
+        with latest.open(encoding="utf-8") as handle:
+            data = json.load(handle)
+        return data if isinstance(data, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def _same_path(a: str, b: str) -> bool:
+    norm = lambda p: os.path.normcase(os.path.normpath(os.path.realpath(p)))  # noqa: E731
+    try:
+        return norm(a) == norm(b)
+    except (OSError, ValueError, TypeError):
+        return False
+
+
+def _hooks_seen_here(root) -> Optional[str]:
+    """ADR-0032: "running from <root> (seen <time>)" when the latest ledger
+    says the prompt gate last ran from this very plugin; else None."""
+    data = _latest_ledger(paths.state_dir(root))
+    seen = (data or {}).get("hook_root")
+    if not isinstance(seen, str) or not _same_path(seen, str(paths.plugin_root())):
+        return None
+    return "hooks are running from %s (seen %s)" % (seen, (data or {}).get("hook_seen_at") or "?")
+
+
 def axis_hooks_registered(root) -> dict:
+    # ADR-0032: hooks observed running are the answer this axis asks for,
+    # whatever the install records say (a --plugin-dir session, a checkout).
+    seen = _hooks_seen_here(root)
+    if seen:
+        return _axis("hooks registered", verdict.OK, seen)
     path = _installed_plugins_path()
     if not path:
         return _axis("hooks registered", verdict.UNVERIFIED,

@@ -641,7 +641,8 @@ def _run_one_raw(
         # Missing binary, permission denied, bad argv: we learned nothing about
         # the code under test, so this is unverified rather than a failure.
         result["elapsed_s"] = round(time.monotonic() - started, 3)
-        result["stderr_tail"] = f"could not execute: {err}"
+        result["stderr_tail"] = f"could not execute: {err}" + runcheck.stale_path_hint(
+            (crit.get("argv") or [None])[0])
         return result
 
     result["elapsed_s"] = round(time.monotonic() - started, 3)

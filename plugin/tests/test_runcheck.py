@@ -1134,5 +1134,41 @@ class TestDecodeOutput(unittest.TestCase):
         self.assertEqual(runcheck.decode_output(b""), "")
 
 
+class TestStalePathHint(unittest.TestCase):
+    """A program installed after the session started is on the registry PATH
+    but not on this process's (observed: Node installed mid-session, every
+    criterion `could not execute: node`). The hint says so; Windows only."""
+
+    def setUp(self) -> None:
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.bindir = self._tmp.name
+        name = "gk-fresh-tool" + (".exe" if os.name == "nt" else "")
+        path = os.path.join(self.bindir, name)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("")
+        os.chmod(path, 0o755)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def hint(self, program: str, windows: bool = True, registry=None) -> str:
+        with mock.patch.object(runcheck, "IS_WINDOWS", windows),                 mock.patch.object(runcheck, "_registry_path",
+                                  return_value=self.bindir if registry is None else registry):
+            return runcheck.stale_path_hint(program)
+
+    def test_installed_but_not_on_this_path(self) -> None:
+        text = self.hint("gk-fresh-tool")
+        self.assertIn("not on this session's PATH", text)
+        self.assertIn("new terminal", text)
+
+    def test_nothing_to_say_elsewhere(self) -> None:
+        self.assertEqual(self.hint("gk-fresh-tool", windows=False), "")
+        self.assertEqual(self.hint("gk-not-installed-anywhere"), "")
+        self.assertEqual(self.hint("gk-fresh-tool", registry=""), "")
+        self.assertEqual(self.hint("./gk-fresh-tool"), "")
+        self.assertEqual(self.hint(""), "")
+
+
 if __name__ == "__main__":
     unittest.main()

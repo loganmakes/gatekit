@@ -66,6 +66,16 @@ class TestLedgerBootstrap(PromptProject):
         self.assertEqual(self.led("s-en").data["output_lang"], "en")
 
 
+class TestHookRoot(PromptProject):
+    def test_the_prompt_gate_records_where_it_runs_from(self) -> None:
+        # ADR-0032: doctor believes hooks it has seen run from its own root.
+        from gatekit import paths
+        prompt_gate.handle(self.event("hello"))
+        data = self.led().data
+        self.assertEqual(data.get("hook_root"), str(paths.plugin_root()))
+        self.assertTrue(data.get("hook_seen_at"))
+
+
 class TestLanguageDetection(PromptProject):
     def test_korean_prompt_stores_ko(self) -> None:
         prompt_gate.handle(self.event("로그인 화면을 만들어줘"))
@@ -98,6 +108,32 @@ class TestLanguageDetection(PromptProject):
         for reply in ("1", "2.", "3 ", "1 2"):
             prompt_gate.handle(self.event(reply))
             self.assertEqual(self.led().data["output_lang"], "ko", reply)
+
+    #: What the host delivers as a "prompt" that the user never typed: a
+    #: background task's completion notice and a subagent's hand-back, both
+    #: wrapped in English. Observed on the first host run: each flipped a
+    #: Korean session to output_lang=en.
+    HARNESS_PROMPTS = (
+        "<system-reminder>\n[SYSTEM NOTIFICATION - NOT USER INPUT]\nThis is an automated "
+        "background-task event, NOT a message from the user.\n<task-notification>\n"
+        "<task-id>b1</task-id>\n<status>completed</status>\n<summary>Background command "
+        "\"Watch the CI run\" completed (exit code 0)</summary>\n</task-notification>\n"
+        "</system-reminder>",
+        "Another Claude session sent a message:\n<agent-message from=\"a1\">\n"
+        "[Subagent hand-back] The text below is the final report.\n  ## 판정 표\n  모두 ok 입니다.\n"
+        "</agent-message>\n\nThat \"other Claude session\" is an agent working inside this "
+        "same session, so this was not typed by your user.",
+    )
+
+    def test_a_harness_message_is_not_the_users_language(self) -> None:
+        prompt_gate.handle(self.event("로그인 화면을 만들어줘"))
+        for text in self.HARNESS_PROMPTS:
+            prompt_gate.handle(self.event(text))
+            self.assertEqual(self.led().data["output_lang"], "ko", text[:40])
+
+    def test_a_harness_message_does_not_set_the_first_language(self) -> None:
+        prompt_gate.handle(self.event(self.HARNESS_PROMPTS[0]))
+        self.assertNotEqual(self.led().data.get("lang_source"), "prompt")
 
     def test_a_real_english_sentence_still_switches(self) -> None:
         prompt_gate.handle(self.event("로그인 화면을 만들어줘"))

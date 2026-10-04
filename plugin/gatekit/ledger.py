@@ -85,6 +85,10 @@ def _blank(session_id: str) -> Dict[str, Any]:
         # ADR-0029 amendment: names.legacy_plugin_enabled, taken once at the
         # session's first prompt; None until then. Stop and question read it.
         "legacy_plugins": None,
+        # ADR-0032: the plugin root the prompt gate last ran from, and when.
+        # doctor's hooks axis believes hooks it has seen running.
+        "hook_root": None,
+        "hook_seen_at": None,
         "stop": _blank_stop(),
         "events": [],
     }
@@ -318,7 +322,7 @@ class Ledger:
         if source in ("prompt", "spec"):
             self.data["lang_source"] = source
 
-    def set_pipeline(self, name: Optional[str]) -> bool:
+    def set_pipeline(self, name: Optional[str], source: Optional[str] = None) -> bool:
         """Set ``active_pipeline`` to *name* (``None`` clears it).
 
         Returns ``False`` and leaves the ledger untouched for a name outside
@@ -336,8 +340,16 @@ class Ledger:
                 "max_calls": 2,
                 "budget_exceeded": False,
             }
-            self.append_event("pipeline_set", {"pipeline": name, "previous": previous})
+            detail = {"pipeline": name, "previous": previous}
+            if source:
+                detail["source"] = source  # ADR-0032: "skill" when the Skill hook set it
+            self.append_event("pipeline_set", detail)
         return True
+
+    def note_hook_root(self, root: str) -> None:
+        """Record that a hook ran from plugin *root* now (ADR-0032)."""
+        self.data["hook_root"] = str(root)
+        self.data["hook_seen_at"] = _now()
 
     def rearm_stop(self) -> None:
         """Arm the Stop gate afresh (ADR-0024): a new `/gatekit:build` or

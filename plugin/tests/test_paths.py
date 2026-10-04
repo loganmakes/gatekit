@@ -111,5 +111,34 @@ class TestDerivedDirs(TempProject):
         self.assertTrue(target.is_dir())
 
 
+class TestPythonCommand(unittest.TestCase):
+    """Fix strings name an interpreter that runs. On a Windows host every
+    printed `python3 ...` remedy failed in a session whose PATH predated
+    Python's directory: `python3` there was the Microsoft Store placeholder
+    (prints "Python", exit 49). The shell a remedy is pasted into need not
+    see the PATH this process sees, so on Windows the remedy names the
+    interpreter that is running."""
+
+    def test_posix_keeps_python3(self) -> None:
+        self.assertEqual(paths.python_command(windows=False), "python3")
+
+    def test_windows_names_the_running_interpreter(self) -> None:
+        exe = sys.executable.replace("\\", "/")
+        self.assertEqual(paths.python_command(windows=True),
+                         '"%s"' % exe if " " in exe else exe)
+
+    def test_a_path_with_a_space_is_quoted_and_slashes_are_forward(self) -> None:
+        from unittest import mock
+        with mock.patch.object(sys, "executable", "C:\\Program Files\\Python312\\python.exe"):
+            self.assertEqual(paths.python_command(windows=True),
+                             '"C:/Program Files/Python312/python.exe"')
+        with mock.patch.object(sys, "executable", "C:\\Python312\\python.exe"):
+            self.assertEqual(paths.python_command(windows=True), "C:/Python312/python.exe")
+
+    def test_cli_invocation_uses_it(self) -> None:
+        self.assertTrue(paths.cli_invocation().startswith(paths.python_command() + " "))
+        self.assertIn("gatekit.py", paths.cli_invocation())
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

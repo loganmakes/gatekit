@@ -27,11 +27,90 @@ import ntpath
 import os
 import posixpath
 import re
+import shutil
 from typing import Any, Dict, Iterable, List, Optional
 
 from gatekit import paths
 
 SIGNATURES_FILE = "no-tests-signatures.json"
+IS_WINDOWS = os.name == "nt"
+
+
+def _registry_path() -> str:
+    """The machine and user ``Path`` as Windows stores them now, expanded;
+    "" off Windows or when unreadable. A process started before an install
+    keeps its own copy, so this can hold directories ``os.environ`` lacks."""
+    if not IS_WINDOWS:
+        return ""
+    try:
+        import winreg  # Windows-only stdlib module
+    except ImportError:
+        return ""
+    parts = []
+    for hive, key in ((winreg.HKEY_LOCAL_MACHINE,
+                       r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
+                      (winreg.HKEY_CURRENT_USER, r"Environment")):
+        try:
+            with winreg.OpenKey(hive, key) as handle:
+                value, _ = winreg.QueryValueEx(handle, "Path")
+            parts.append(winreg.ExpandEnvironmentStrings(str(value)))
+        except OSError:
+            continue
+    return ";".join(p for p in parts if p)
+
+
+def stale_path_hint(program: Any) -> str:
+    """A note for a criterion or gate whose bare *program* could not be run:
+    on Windows, when the registry ``Path`` finds it and this process's does
+    not, it was installed after the session started (observed: Node installed
+    mid-session, every criterion `could not execute: node`). "" otherwise."""
+    name = str(program or "")
+    if not IS_WINDOWS or not name or "/" in name or "\\" in name:
+        return ""
+    registry = _registry_path()
+    if not registry:
+        return ""
+    found = shutil.which(name, path=registry)
+    if not found or shutil.which(name):
+        return ""
+    return (" — %s is installed (%s) but not on this session's PATH; start Claude Code "
+            "again from a new terminal so it sees the new PATH" % (name, found))
+
+
+def decode_output(raw: Optional[bytes]) -> str:
+    """A command's captured output as text, never lost.
+
+    UTF-8 first (Node and Playwright print `✔`/`—` in UTF-8 whatever the
+    console says), then the locale codec (a child Python or a Windows tool
+    printing a cp949 path), then UTF-8 with replacement. Decoding with one
+    codec alone either broke the reader thread under cp949 and returned an
+    empty stream, so a `stdout_not_contains` check passed against nothing, or
+    mangled the path the not-yet-runnable classifier matches on.
+    """
+    if not raw:
+        return ""
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        pass
+    try:
+        return raw.decode(locale.getpreferredencoding(False))
+    except (UnicodeDecodeError, LookupError):
+        return raw.decode("utf-8", "replace")
+
+
+def child_env() -> Dict[str, str]:
+    """The environment a criterion or task gate runs in: this process's, with
+    ``PYTHONIOENCODING=utf-8`` unless the user set it.
+
+    A child Python prints in its locale codec; a path or test name that codec
+    cannot encode (Korean on a cp1252 Windows) killed it mid-print and left
+    nothing to judge. Only the standard streams change — ``open()`` in the
+    user's code keeps its default — and :func:`decode_output` reads UTF-8 first.
+    """
+    env = dict(os.environ)
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    return env
 
 
 def decode_output(raw: Optional[bytes]) -> str:

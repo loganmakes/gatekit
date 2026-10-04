@@ -168,6 +168,41 @@ plugin itself.
     trust is still to do. If the write goes through, that is a gatekit bug
     to fix before any installer work.
 
+    Update 2026-10-05: on the study PC the write went through, because
+    Codex runs hooks in PowerShell 5.1, not CMD, and the sh-form command
+    runs nothing there. ADR-0034 fixes the generated layer
+    (`install --host codex`) with a `commandWindows`; the plugin-install
+    route stays `unverified` on Windows. The same day the owner trusted
+    the hooks in `/hooks` and saw a code write and a shell write denied
+    before approval (ADR-0034 "Evidence", ADR-0035), which is the evidence
+    this decision asks for, so the `-WithCodex` amendment can follow.
+
+12. **`-WithCodex` installs the Codex CLI and says what is left per project
+    (amendment, 2026-10-05).** It implies `-WithNode`, since the CLI comes
+    from npm. Rows, after Node:
+    - `codex`: `ok`/`skip` when `codex` is on PATH; otherwise
+      `npm.cmd install -g @openai/codex` (through `npm.cmd`, which the
+      script policy does not block where `npm.ps1` is), planned as
+      `unverified` under `-DryRun`, then `ok` when `codex` answers,
+      `warn` when only a new window would find it, `fail` when npm fails;
+      `unverified`/`manual` when no `npm.cmd` exists yet (Node was just
+      installed or `winget` is missing): run the installer again in a new
+      window.
+    - `codex-hooks`: always `warn`, with or without `-DryRun`. It names the
+      two steps no installer may take for the user: in each project,
+      `install --host codex` from the installed plugin (its path read from
+      `installed_plugins.json` when known), then `codex` → `/hooks` → trust
+      each gatekit hook and open a new session (`codex --no-daemon` if
+      `codex` stops with `os error 5`, as on the study PC), again after
+      every gatekit update. A Codex install therefore never ends `ok`.
+
+    It does **not** add gatekit as a Codex plugin (`codex plugin add`): on
+    Windows that route is `unverified` (ADR-0034 decision 3), and a plugin
+    whose hooks cannot run beside a project layer whose hooks can would
+    look installed while adding nothing. The tests plan each row against
+    stubbed machines (`codex` present, `npm.cmd` present, neither) and pin
+    that no row mentions `codex plugin`.
+
 ## Consequences
 
 - A first install on Windows is one command plus a browser login, and every

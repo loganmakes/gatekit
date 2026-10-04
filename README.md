@@ -1,6 +1,6 @@
 # gatekit
 
-Status: 0.16.11 — early. License: MIT.
+Status: 0.16.12 — early. License: MIT.
 
 > **Name change ahead.** gatekit will be renamed **gatebound** after the
 > current study cohort ends. Nothing changes until then: your installation,
@@ -82,13 +82,15 @@ whatever is missing — Git, Python, Claude Code — fixes the user PATH, sets
 `PYTHONUTF8=1` and installs or updates gatekit (ADR-0033):
 
 ```powershell
-irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.11/install/install.ps1 | iex
+irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.12/install/install.ps1 | iex
 ```
 
 Then open a new PowerShell window, run `claude` in your project folder (it
 asks you to log in the first time) and `/gatekit:doctor`. Run the line again
 to update. To see the plan without changing anything:
-`& ([scriptblock]::Create((irm <url>))) -DryRun`. Codex is not covered yet.
+`& ([scriptblock]::Create((irm <url>))) -DryRun`. Add `-WithCodex` the same
+way to install the Codex CLI too; its last row stays `warn` until you run
+`install --host codex` in the project and trust the hooks in `/hooks`.
 
 **Claude desktop app.** Plugins work there too, and hooks run as in the CLI:
 click **+ → Plugins → Add plugin**, add the marketplace
@@ -136,9 +138,9 @@ project's `.codex/` layer when Codex asks.
 | | Claude Code | Codex CLI |
 |---|---|---|
 | Kernel CLI, templates, `spec validate`, contracts | ok | ok |
-| write gate (spec before code, task scope) | ok | ok — observed: `apply_patch` arrives as its own event with the patch text and is denied before approval |
-| bash gate | ok | ok — observed: code-mode `exec` is unwrapped into one `Bash` event per shell command |
-| powershell gate (`PowerShell` tool, Windows) | unverified — tool name and input from the hook docs, reader tested by parsing only; no live Windows session observed yet | n/a — Codex reports every shell call as `Bash` |
+| write gate (spec before code, task scope) | ok | ok — observed: `apply_patch` arrives as its own event with the patch text and is denied before approval; on Windows the hooks run in PowerShell, so the layer carries a `commandWindows` (ADR-0034, observed with the hooks trusted in `/hooks`) |
+| bash gate | ok | ok — observed: code-mode `exec` is unwrapped into one `Bash` event per shell command; on Windows that text is PowerShell and is read as PowerShell too (ADR-0035, observed: `Set-Content` into `src/` denied) |
+| powershell gate (`PowerShell` tool, Windows) | unverified — tool name and input from the hook docs, reader tested by parsing only; no live Windows session observed yet | n/a as a tool — Codex reports every shell call as `Bash`; its PowerShell reading runs inside the bash gate on Windows (ADR-0035) |
 | stop gate (contract at session end) | ok | ok — Codex Stop dialect |
 | prompt gate (`active_pipeline`, language) | ok | ok — `$gatekit-<name>` invocation |
 | spawn gate (subagent scope fence) | ok | warn — `collaborationspawn_agent` hides the prompt from hooks, so the fence cannot be checked; the subagent's own writes still meet the write and bash gates (observed) |
@@ -278,7 +280,7 @@ defaults.
 
 ## Status
 
-**0.16.11 — early.** The core gate/ledger/contract/approval kernel, worker
+**0.16.12 — early.** The core gate/ledger/contract/approval kernel, worker
 dispatch (host or a different-model worker), Codex evaluator support, and
 the CI enforcement tooling are all in place; expect rough edges. See
 `CHANGELOG.md` for what shipped and `docs/decisions/` for the architectural

@@ -12,6 +12,8 @@
 #   & ([scriptblock]::Create((irm <url>))) -DryRun
 #   -DryRun     print the plan, change nothing
 #   -WithNode   also install Node.js LTS (web projects only)
+#   -WithCodex  also install the Codex CLI (implies -WithNode); trusting the
+#               hooks in each project stays the user's step (ADR-0033 d12)
 #   -Json       print the result as JSON instead of a table
 #   -Lang ko|en message language (default: from the Windows UI language)
 #
@@ -21,12 +23,15 @@
 param(
     [switch]$DryRun,
     [switch]$WithNode,
+    [switch]$WithCodex,
     [switch]$Json,
     [string]$Lang = ""
 )
 
 $code = & {
     $ErrorActionPreference = "Stop"
+    # The Codex CLI comes from npm (ADR-0033 decision 12).
+    if ($WithCodex) { $WithNode = $true }
 
     # ---- test seams -------------------------------------------------------
     # The tests stand in a fake profile, PATH, elevation and PYTHONUTF8. Seams
@@ -81,6 +86,9 @@ $code = & {
         'next_folder' = 'Go to your project folder, e.g.  Set-Location "$HOME\study\my-app"'
         'next_claude' = 'Run  claude  (it opens a browser to log in on the first run).'
         'next_doctor' = 'In Claude, run  /gatekit:doctor  - rows 1 and 2 should read ok.'
+        'codex_no_npm' = 'npm.cmd is not on PATH yet, so the Codex CLI was not installed. Open a new PowerShell window and run the installer again with -WithCodex.'
+        'codex_hooks' = 'Codex runs gatekit''s gates only after you trust them, so two steps are left in each project: run  {0} "{1}" install --host codex , then run  codex  (codex --no-daemon if it stops with os error 5), type /hooks, press t on each gatekit hook and start a new session. Redo both after every gatekit update.'
+        'next_codex' = 'For Codex: do the two steps in the codex-hooks row in each project.'
     }
     $Ko = @{
         'elevated' = (U '\uAD00\uB9AC\uC790 \uAD8C\uD55C\uC73C\uB85C \uC5F0 \uCC3D\uC774\uC5D0\uC694. \uCC3D\uC744 \uB2EB\uACE0 PowerShell\uC744 \uC77C\uBC18\uC73C\uB85C("\uAD00\uB9AC\uC790 \uAD8C\uD55C\uC73C\uB85C \uC2E4\uD589" \uB9D0\uACE0) \uC5F0 \uB4A4 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.')
@@ -110,6 +118,9 @@ $code = & {
         'next_folder' = (U '\uD504\uB85C\uC81D\uD2B8 \uD3F4\uB354\uB85C \uAC00\uC138\uC694. \uC608:  Set-Location "$HOME\\study\\my-app"')
         'next_claude' = (U 'claude \uB97C \uC2E4\uD589\uD558\uC138\uC694 (\uCC98\uC74C\uC774\uBA74 \uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C \uB85C\uADF8\uC778).')
         'next_doctor' = (U 'Claude \uC548\uC5D0\uC11C /gatekit:doctor \uB97C \uC2E4\uD589\uD558\uC138\uC694. 1, 2\uBC88 \uC904\uC774 ok\uBA74 \uB3FC\uC694.')
+        'codex_no_npm' = (U '\uC544\uC9C1 PATH\uC5D0 npm.cmd\uAC00 \uC5C6\uC5B4\uC11C Codex CLI\uB97C \uC124\uCE58\uD558\uC9C0 \uBABB\uD588\uC5B4\uC694. PowerShell\uC744 \uC0C8\uB85C \uC5F4\uACE0 -WithCodex\uB85C \uC124\uCE58 \uC2A4\uD06C\uB9BD\uD2B8\uB97C \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.')
+        'codex_hooks' = (U 'Codex\uB294 \uC0AC\uC6A9\uC790\uAC00 \uC2E0\uB8B0\uD55C \uB4A4\uC5D0\uB9CC gatekit \uAC8C\uC774\uD2B8\uB97C \uC2E4\uD589\uD574\uC694. \uD504\uB85C\uC81D\uD2B8\uB9C8\uB2E4 \uB450 \uB2E8\uACC4\uAC00 \uB0A8\uC558\uC5B4\uC694: {0} "{1}" install --host codex \uB97C \uC2E4\uD589\uD558\uACE0, codex \uB97C \uC2E4\uD589\uD574(os error 5\uB85C \uBA48\uCD94\uBA74 codex --no-daemon) /hooks \uC5D0\uC11C gatekit \uD6C5\uB9C8\uB2E4 t \uB97C \uB204\uB978 \uB4A4 \uC0C8 \uC138\uC158\uC744 \uC5EC\uC138\uC694. gatekit\uC744 \uC5C5\uB370\uC774\uD2B8\uD560 \uB54C\uB9C8\uB2E4 \uB450 \uB2E8\uACC4\uB97C \uB2E4\uC2DC \uD558\uC138\uC694.')
+        'next_codex' = (U 'Codex\uB97C \uC4F4\uB2E4\uBA74: \uD504\uB85C\uC81D\uD2B8\uB9C8\uB2E4 codex-hooks \uC904\uC758 \uB450 \uB2E8\uACC4\uB97C \uD558\uC138\uC694.')
     }
     function T {
         param([string]$Key)
@@ -329,9 +340,9 @@ $code = & {
 
     # ---- 5. the gatekit plugin --------------------------------------------
     $installedJson = Join-Path $PluginsDir "installed_plugins.json"
-    $hasGatekit = (Test-Path $installedJson) -and ((Get-Content $installedJson -Raw) -match '"gatekit@gatekit"')
+    $hasGatekit = (Test-Path $installedJson) -and ((Get-Content $installedJson -Raw -Encoding UTF8) -match '"gatekit@gatekit"')
     $knownJson = Join-Path $PluginsDir "known_marketplaces.json"
-    $hasMarket = (Test-Path $knownJson) -and ((Get-Content $knownJson -Raw) -match '"gatekit"')
+    $hasMarket = (Test-Path $knownJson) -and ((Get-Content $knownJson -Raw -Encoding UTF8) -match '"gatekit"')
     $steps = if ($hasGatekit) {
         @(@("plugin", "marketplace", "update", "gatekit"), @("plugin", "update", "gatekit@gatekit"))
     } elseif ($hasMarket) {
@@ -359,7 +370,7 @@ $code = & {
             } else {
                 $ver = ""
                 try {
-                    $data = Get-Content $installedJson -Raw | ConvertFrom-Json
+                    $data = Get-Content $installedJson -Raw -Encoding UTF8 | ConvertFrom-Json
                     $ver = @($data.plugins."gatekit@gatekit")[0].version
                 } catch { }
                 Add-Row "gatekit" "ok" $action (T "gatekit_ready" $ver)
@@ -381,6 +392,40 @@ $code = & {
             if ($node) { Add-Row "node" "ok" "install" (T "installed" (Run-Quiet $node @("--version")).out) }
             else { Add-Row "node" "warn" "install" (T "new_window" "node") }
         }
+    }
+
+    # ---- 7. Codex CLI (only with -WithCodex, ADR-0033 decision 12) ----------
+    # The CLI only: gatekit is not added as a Codex plugin, whose hooks are
+    # unverified on Windows (ADR-0034 decision 3). The per-project layer and
+    # the hook trust are the user's steps, so the last row is always a warn.
+    if ($WithCodex) {
+        $codex = @(Find-Command "codex") | Select-Object -First 1
+        $npm = @(Find-Command "npm.cmd") | Select-Object -First 1
+        $npmCommand = "npm.cmd install -g @openai/codex"
+        if ($codex) {
+            Add-Row "codex" "ok" "skip" (Run-Quiet $codex @("--version")).out
+        } elseif (-not $npm) {
+            Add-Row "codex" "unverified" "manual" (T "codex_no_npm")
+        } elseif ($DryRun) {
+            Add-Row "codex" "unverified" "install" (T "will_install" $npmCommand)
+        } else {
+            Say (T "installing" "Codex CLI")
+            $r = Run-Quiet $npm @("install", "-g", "@openai/codex")
+            $npmDir = Join-Path $env:APPDATA "npm"
+            if ($r.ok -and -not (On-Path $npmDir)) { Set-UserPath -Front @() -Back @($npmDir); Add-Row "path" "ok" "append" (T "appended" $npmDir) }
+            Refresh-SessionPath
+            $codex = @(Find-Command "codex") | Select-Object -First 1
+            if (-not $r.ok) { Add-Row "codex" "fail" "install" (T "install_failed" $npmCommand "https://developers.openai.com/codex/cli") }
+            elseif ($codex) { Add-Row "codex" "ok" "install" (T "installed" (Run-Quiet $codex @("--version")).out) }
+            else { Add-Row "codex" "warn" "install" (T "new_window" "codex") }
+        }
+        $pluginRoot = "<gatekit plugin folder>"
+        try {
+            $entry = @((Get-Content $installedJson -Raw -Encoding UTF8 | ConvertFrom-Json).plugins."gatekit@gatekit")[0]
+            if ($entry.installPath) { $pluginRoot = $entry.installPath }
+        } catch { }
+        $pyShown = if ($py.path) { '& "' + $py.path + '"' } else { "python" }
+        Add-Row "codex-hooks" "warn" "manual" (T "codex_hooks" $pyShown (Join-Path $pluginRoot "bin\gatekit.py"))
     }
     }
 
@@ -414,6 +459,7 @@ $code = & {
             Write-Host ("  2. " + (T "next_folder"))
             Write-Host ("  3. " + (T "next_claude"))
             Write-Host ("  4. " + (T "next_doctor"))
+            if ($WithCodex) { Write-Host ("  5. " + (T "next_codex")) }
         }
     }
     if ($overall -eq "fail") { 1 } else { 0 }

@@ -1,7 +1,9 @@
 # ADR-0030: A hook probes its interpreter before running, so a failed attempt never writes to stdout
 
 Status: accepted 2026-10-04 (owner-reported Windows reproduction in session).
-Amends ADR-0019 decision 3a.
+Amends ADR-0019 decision 3a. Decision 2's CMD prediction is superseded by
+ADR-0034: Codex on Windows runs hooks in PowerShell, where this form runs
+nothing.
 
 ## Context
 

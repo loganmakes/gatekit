@@ -1200,15 +1200,27 @@ def oversized(root, event: Dict[str, Any], command: str, mention_text: str,
     return hookio.allow()
 
 
-def handle(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Judge every file this Bash command would write."""
+def handle(event: Dict[str, Any], host: Optional[str] = None,
+           windows: Optional[bool] = None) -> Optional[Dict[str, Any]]:
+    """Judge every file this Bash command would write.
+
+    Under Codex on Windows the command is PowerShell text (ADR-0035), so an
+    allow here is followed by the PowerShell gate's reading; the first deny
+    wins."""
     if event.get("tool_name") != "Bash":
         return hookio.allow()
     tool_input = event.get("tool_input") or {}
     command = tool_input.get("command") if isinstance(tool_input, dict) else None
     if not isinstance(command, str) or not command.strip():
         return hookio.allow()
+    decision = _judge_sh(event, command)
+    if decision is None and host == "codex" and (os.name == "nt" if windows is None else windows):
+        from gatekit.gates import powershell  # it imports this module
+        decision = powershell.judge(event, command)
+    return decision
 
+
+def _judge_sh(event: Dict[str, Any], command: str) -> Optional[Dict[str, Any]]:
     root = hookio.event_root(event)
     if too_large(command):
         return oversized(root, event, command, command, lambda lang, why: _message(
@@ -1247,7 +1259,8 @@ def _shown(command: str) -> str:
 
 
 def main() -> None:  # pragma: no cover - exercised via subprocess tests
-    hookio.run(handle)
+    host = hookio.host_from_argv()
+    hookio.run(lambda event: handle(event, host=host), host=host)
 
 
 if __name__ == "__main__":  # pragma: no cover

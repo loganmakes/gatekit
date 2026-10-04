@@ -857,6 +857,81 @@ class TestInstallerPlan(unittest.TestCase):
         self.assertEqual(row["action"], "install")
         self.assertIn("--accept-package-agreements", row["detail"])
 
+    # ---- -WithCodex (ADR-0033 decision 12) -----------------------------
+    def working(self) -> list:
+        self.real_python(); self.git(); self.claude(); self.gatekit_installed()
+        return [self.realpy, self.windowsapps, self.gitdir, self.localbin, self.wingetdir]
+
+    def node(self) -> pathlib.Path:
+        nodedir = self.root / "nodejs"
+        nodedir.mkdir()
+        self.stub(nodedir / "node", "echo v22.11.0")
+        self.stub(nodedir / "npm", "echo npm")
+        return nodedir
+
+    def codex_hooks_row(self, data: dict) -> dict:
+        row = self.row(data, "codex-hooks")
+        self.assertEqual(row["verdict"], "warn", row)
+        return row
+
+    def test_codex_only_with_the_flag(self) -> None:
+        _, data = self.plan(self.working(), env={"GATEKIT_INSTALL_USER_PYTHONUTF8": "1"})
+        self.assertEqual([r for r in data["rows"] if r["item"].startswith("codex")], [])
+
+    def test_with_codex_the_cli_comes_from_npm_cmd(self) -> None:
+        _, data = self.plan(self.working() + [self.node()], extra=["-WithCodex"])
+        self.assertEqual(self.row(data, "node")["action"], "skip")  # -WithCodex implies -WithNode
+        row = self.row(data, "codex")
+        self.assertEqual((row["action"], row["verdict"]), ("install", "unverified"), row)
+        self.assertIn("npm.cmd install -g @openai/codex", row["detail"])
+
+    def test_a_codex_on_path_is_kept(self) -> None:
+        nodedir = self.node()
+        self.stub(nodedir / "codex", "echo codex-cli 0.160.0")
+        _, data = self.plan(self.working() + [nodedir], extra=["-WithCodex"])
+        row = self.row(data, "codex")
+        self.assertEqual((row["action"], row["verdict"]), ("skip", "ok"), row)
+        self.assertIn("0.160.0", row["detail"])
+
+    def test_without_npm_codex_waits_for_a_new_window(self) -> None:
+        _, data = self.plan(self.working(), extra=["-WithCodex"])
+        self.assertEqual(self.row(data, "node")["action"], "install")
+        row = self.row(data, "codex")
+        self.assertEqual((row["action"], row["verdict"]), ("manual", "unverified"), row)
+        self.assertIn("-WithCodex", row["detail"])
+
+    def test_the_hooks_row_is_always_a_warn_with_the_steps_left(self) -> None:
+        nodedir = self.node()
+        self.stub(nodedir / "codex", "echo codex-cli 0.160.0")
+        proc, data = self.plan(self.working() + [nodedir], extra=["-WithCodex"],
+                               env={"GATEKIT_INSTALL_USER_PYTHONUTF8": "1"})
+        row = self.codex_hooks_row(data)
+        for needle in ("install --host codex", "/hooks", "--no-daemon"):
+            self.assertIn(needle, row["detail"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertNotEqual(data["verdict"], "ok")  # a Codex install never ends ok
+
+    def test_the_hooks_row_names_the_installed_plugin(self) -> None:
+        paths = self.working()
+        # Claude Code writes this file as raw UTF-8 (not \u-escaped), and a
+        # Korean user folder puts Hangul in the path; PowerShell 5.1 reads a
+        # BOM-less file in the ANSI code page unless told otherwise.
+        plugin = self.home / "사용자" / ".claude" / "plugins" / "cache" / "gatekit" / "gatekit" / "0.16.10"
+        (self.home / ".claude" / "plugins" / "installed_plugins.json").write_text(json.dumps(
+            {"version": 2, "plugins": {"gatekit@gatekit": [
+                {"version": "0.16.10", "installPath": str(plugin)}]}}, ensure_ascii=False), encoding="utf-8")
+        _, data = self.plan(paths + [self.node()], extra=["-WithCodex"])
+        self.assertIn(str(plugin / "bin" / "gatekit.py"), self.codex_hooks_row(data)["detail"])
+
+    def test_no_codex_plugin_is_installed(self) -> None:
+        _, data = self.plan(self.working() + [self.node()], extra=["-WithCodex"])
+        self.assertFalse(any("codex plugin" in r["detail"] for r in data["rows"]), data["rows"])
+
+    def test_codex_rows_follow_the_language(self) -> None:
+        _, data = self.plan(self.working(), extra=["-WithCodex"], lang="ko")
+        for item in ("codex", "codex-hooks"):
+            self.assertTrue(any("가" <= ch <= "힣" for ch in self.row(data, item)["detail"]), item)
+
     def test_an_elevated_window_is_refused(self) -> None:
         proc, data = self.plan([self.windowsapps, self.wingetdir], env={"GATEKIT_INSTALL_ELEVATED": "1"})
         self.assertEqual(proc.returncode, 1)

@@ -4,6 +4,58 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.16.12 — 2026-10-05
+
+The gates run under Codex on Windows, and the installer can add Codex
+(ADR-0034, ADR-0035, ADR-0033 decision 12). Seen on the study PC with Codex
+CLI 0.160.0 and the hooks trusted by a person in `/hooks`: an `apply_patch`
+and a shell `Set-Content` into `src/` were denied before approval, a `docs/`
+write went through.
+
+### Fixed
+
+- **Codex on Windows ran no gatekit hook at all.** Codex runs a hook
+  command in Windows PowerShell 5.1, where the sh chain's `||` and `&&` are
+  parse errors, so nothing started (`py -3` included) and code was written
+  before approval. `install --host codex` now gives every hook a
+  `commandWindows` — the ADR-0030 probe in PowerShell syntax: `python3`,
+  `python`, each probed with its output discarded, then `py -3`, `exit 1`
+  aloud when none exists — which Codex runs on Windows in place of
+  `command` (ADR-0034). Re-run `install --host codex` in a Codex project and
+  trust the hooks again in `/hooks`.
+- **PowerShell writes in a Codex shell call on Windows were allowed.** Codex
+  reports the call as `Bash` with PowerShell text, which the Bash gate read
+  as sh (`Set-Content` was a program by name). Under Codex on Windows the
+  Bash gate now also judges the command as the powershell gate does; the
+  first deny wins (ADR-0035). Claude Code and Codex elsewhere are unchanged.
+- **The installer read Claude Code's plugin files in the ANSI code page.**
+  `installed_plugins.json` is raw UTF-8; under a Korean user folder the JSON
+  broke and the `gatekit` row's version came back empty. Both plugin files
+  are now read as UTF-8.
+
+### Added
+
+- **`install.ps1 -WithCodex`** (implies `-WithNode`): installs the Codex CLI
+  through `npm.cmd` (`codex` row) and always ends with a `codex-hooks`
+  `warn` naming the two steps no installer may take: `install --host codex`
+  from the installed plugin in each project, then `/hooks` → trust each
+  gatekit hook and a new session (`codex --no-daemon` if `codex` stops with
+  `os error 5`), again after every update. gatekit is not added as a Codex
+  plugin.
+
+### Docs
+
+- README, README.ko and the manual pin the installer to v0.16.12 and
+  describe `-WithCodex`; the host parity table records the Windows
+  observations. ARCHITECTURE §3 and §15 say Codex's Windows hook shell is
+  PowerShell, not CMD (ADR-0030 decision 2 superseded).
+
+### Known limits
+
+- A Codex **plugin** install (`codex plugin add`) on Windows is
+  `unverified`: the plugin's `hooks/hooks.json` has no `commandWindows` yet
+  (ADR-0034 decision 3). Use `install --host codex` there.
+
 ## 0.16.11 — 2026-10-05
 
 A one-line Windows installer replaces the ten-step walkthrough (ADR-0033).

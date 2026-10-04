@@ -36,7 +36,7 @@ else:
 
     ensure_package_path()
 
-from gatekit import design, verdict  # noqa: E402
+from gatekit import design, hookio, verdict  # noqa: E402
 
 #: File kinds the gate knows how to read. Anything else is skipped silently.
 EXTENSIONS = frozenset({
@@ -319,4 +319,5 @@ def main(argv: List[str]) -> int:
 
 
 if __name__ == "__main__":  # pragma: no cover
+    hookio.utf8_stdio()  # a report must print on a cp949/cp1252 console
     sys.exit(main(sys.argv[1:]))

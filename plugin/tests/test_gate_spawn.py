@@ -207,7 +207,7 @@ class TestSubprocess(SpawnProject):
             [sys.executable, str(GATE_SCRIPT)],
             input=json.dumps(event),
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             env=env,
             timeout=30,
         )
@@ -244,7 +244,7 @@ class TestSubprocess(SpawnProject):
             [sys.executable, str(GATE_SCRIPT)],
             input="{oops",
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             env=env,
             timeout=30,
         )

@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from gatekit import approval, config, contract, ledger, names, paths  # noqa: E402
 from gatekit.gates import bash as bash_gate  # noqa: E402
 from gatekit.gates import powershell as ps_gate  # noqa: E402
+from tests._stubs import symlink_or_skip  # noqa: E402
 from gatekit.gates import stop as stop_gate  # noqa: E402
 from gatekit.gates import write as write_gate  # noqa: E402
 
@@ -191,10 +192,7 @@ class TestBashCannotForgeTheStateDir(Project):
 class TestResolveStateDir(Project):
     def link(self, target: pathlib.Path, name: str = ".gatebound") -> pathlib.Path:
         path = self.root / name
-        try:
-            os.symlink(str(target), str(path), target_is_directory=True)
-        except (OSError, NotImplementedError) as exc:  # Windows without privilege
-            self.skipTest("cannot create a symlink here: %s" % exc)
+        symlink_or_skip(self, target, path, target_is_directory=True)
         return path
 
     def test_a_linked_candidate_is_ignored(self) -> None:

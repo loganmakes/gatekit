@@ -367,6 +367,18 @@ Criteria are declared in `spec/05-gate.md` as fenced JSON blocks:
 ```
 ````
 
+A criterion's stdout and stderr — like a task gate's in `jobs.run_gates` and
+a worker probe's in `workers` — are captured as bytes and decoded by
+`runcheck.decode_output`: UTF-8, else the locale codec, else UTF-8 with
+replacement. The stream is never dropped, so `expect` and the no-tests
+signatures always judge what the command printed (a locale-only decode
+under cp949 lost Node's `✔` output and let `stdout_not_contains` pass on
+an empty stream; a UTF-8-only one mangled a cp949 path the not-yet-runnable
+classifier matches on). Criteria and task gates run in `runcheck.child_env()`:
+this process's environment with `PYTHONIOENCODING=utf-8` unless the user set
+it, so a child Python printing a path its locale cannot encode (Korean on a
+cp1252 Windows) does not die mid-print; `open()` defaults are untouched.
+
 A criterion may carry `"tier": "turn" | "verify"` (ADR-0024; default
 `"turn"`). Any other value is a `derive` error and a `spec validate` `fail`.
 `spec validate` warns (`warn`, never `fail`; ADR-0024 review) when no
@@ -592,7 +604,10 @@ present in `spec/tokens.json`. Its exit code is the task-gate convention,
 not the hook convention: `0` (`ok`, every literal found matches a token),
 `1` (`fail`, a literal named with the file, line, and nearest token by
 value), `3` (`unverified`, `tokens.json` absent or unparsable, or the task
-wrote no file the gate knows how to scan). `/gatekit:tasks` adds it by
+wrote no file the gate knows how to scan). Run as a script it prints UTF-8
+whatever the console's code page (`hookio.utf8_stdio`), so a Korean report
+or an em dash on a cp949/cp1252 console never turns the verdict into a
+traceback. `/gatekit:tasks` adds it by
 default to every task whose `write_scope` touches a stylesheet, component,
 or template path when `spec/tokens.json` exists. The scan is deliberately
 narrow — colours only at this version — so a `fail` from it stays
@@ -813,7 +828,9 @@ failure: <paths>)`, `results --compact` appends `grading-changed=<paths>`,
 `status|results --all` cover every job oldest first (`--json`:
 `{"jobs": [...]}`, exit from the latest job's verdict), and `/gatekit:verify`
 lists the tasks flagged in any job as a warning.
-All JSON writes atomic. Worker = argv list + the prompt on stdin, env includes
+All JSON writes atomic (temp file + `config.replace_file`: `os.replace`,
+retried on `PermissionError` every 50 ms for up to 2 s on Windows, where a
+reader holding the target open refuses the swap; once on POSIX). Worker = argv list + the prompt on stdin, env includes
 `GATEKIT_TASK_ID=<id>` and `GATEKIT_JOB_ID=<job_id>` so the write gate can
 enforce `write_scope` inside the worker session. When `spec/tokens.json`
 exists, `jobs.build_prompt` (§14) adds a `## Design` section to the prompt,
@@ -1078,7 +1095,10 @@ one-time fix: run `codex exec --sandbox workspace-write "echo trust-check"` by
 hand and approve the hook-trust prompt. `--force-read-only-evaluator` keeps
 the stricter sandbox regardless. `hosts.codex_hooks_trusted` parses
 `config.toml` with `tomllib` (3.11+) or a narrow hand-rolled reader scoped to
-`[hooks.state."<key>"]` table headers only (3.9/3.10); any parse failure or
+`[hooks.state."<key>"]` table headers only (3.9/3.10), which decodes every
+TOML basic-string escape in the key (`\uXXXX`, `\UXXXXXXXX`, `\\`, `\"`,
+`\b\t\n\f\r`) as `tomllib` does and drops a header with an invalid one, so a
+project under a non-ASCII path matches its entry; any parse failure or
 missing file reads as **not trusted** — "could not tell" never rounds to
 "trusted".
 

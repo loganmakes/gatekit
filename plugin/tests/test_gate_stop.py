@@ -205,7 +205,7 @@ class TestSubprocess(StopProject):
             [sys.executable, str(GATE_SCRIPT)],
             input=json.dumps(event),
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             env=env,
             timeout=60,
         )
@@ -253,7 +253,7 @@ class TestSubprocess(StopProject):
             [sys.executable, str(GATE_SCRIPT)],
             input="{oops",
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             env=env,
             timeout=30,
         )
@@ -379,7 +379,7 @@ class TestCodexHostOutput(StopProject):
             [PY, str(GATE_SCRIPT), "--host", "codex"],
             input=json.dumps(self.event()),
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             env=env,
             timeout=60,
         )
@@ -416,14 +416,14 @@ class CountingCriteria(StopProject):
         code = (
             "import pathlib; p = pathlib.Path('test-results/runs.txt'); "
             "p.parent.mkdir(exist_ok=True); "
-            "p.write_text(p.read_text() + 'x' if p.exists() else 'x'); "
+            "p.write_text(p.read_text(encoding='utf-8') + 'x' if p.exists() else 'x'); "
             "raise SystemExit(%d)" % exit_code
         )
         return {"id": crit_id, "argv": [PY, "-c", code], "timeout_s": 20}
 
     def runs(self) -> int:
         path = self.root / "test-results" / "runs.txt"
-        return len(path.read_text()) if path.exists() else 0
+        return len(path.read_text(encoding="utf-8")) if path.exists() else 0
 
 
 class TestReuseForUnchangedTree(CountingCriteria):
@@ -477,7 +477,7 @@ class TestReuseForUnchangedTree(CountingCriteria):
             code = (
                 "import pathlib; p = pathlib.Path('test-results/order.txt'); "
                 "p.parent.mkdir(exist_ok=True); "
-                "p.write_text((p.read_text() if p.exists() else '') + '%s,'); "
+                "p.write_text((p.read_text(encoding='utf-8') if p.exists() else '') + '%s,'); "
                 "raise SystemExit(%d)" % (crit_id, exit_code)
             )
             return {"id": crit_id, "argv": [PY, "-c", code], "timeout_s": 20}
@@ -487,7 +487,7 @@ class TestReuseForUnchangedTree(CountingCriteria):
         (self.root / "touch.txt").write_text("change\n", encoding="utf-8")
         order_file.write_text("", encoding="utf-8")
         stop_gate.handle(self.event())
-        self.assertEqual(order_file.read_text(), "second-bad,first-ok,")
+        self.assertEqual(order_file.read_text(encoding="utf-8"), "second-bad,first-ok,")
 
     def test_fingerprint_ignores_build_output_and_declared_artifacts(self) -> None:
         self.write_contract({"id": "shot", "argv": [PY, "-c", "pass"], "timeout_s": 20,

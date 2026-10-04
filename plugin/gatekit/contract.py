@@ -617,8 +617,8 @@ def _run_one_raw(
         completed = subprocess.run(  # noqa: S603 - argv list, shell=False by default
             paths.expand_argv(crit["argv"]),
             cwd=str(root),
+            env=runcheck.child_env(),
             capture_output=True,
-            text=True,
             timeout=timeout,
             shell=False,
         )
@@ -635,6 +635,8 @@ def _run_one_raw(
 
     result["elapsed_s"] = round(time.monotonic() - started, 3)
     result["exit"] = completed.returncode
+    completed.stdout = runcheck.decode_output(completed.stdout)
+    completed.stderr = runcheck.decode_output(completed.stderr)
     result["stdout_tail"] = _tail(completed.stdout)
     result["stderr_tail"] = _tail(completed.stderr)
 

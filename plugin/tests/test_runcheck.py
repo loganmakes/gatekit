@@ -11,6 +11,7 @@ from unittest import mock
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from gatekit import paths, runcheck
+from tests._stubs import symlink_or_skip  # noqa: E402
 
 
 class plugin_with_signatures:
@@ -789,7 +790,7 @@ class TestRelativize(unittest.TestCase):
             real = os.path.join(os.path.realpath(tmp), "real")
             os.makedirs(os.path.join(real, "src"))
             link = os.path.join(os.path.realpath(tmp), "link")
-            os.symlink(real, link)
+            symlink_or_skip(self, real, link)
             # the message names the symlinked form; the root is the real one
             self.assertEqual(runcheck.relativize(link + "/src/missing.json", real),
                              "src/missing.json")
@@ -1031,7 +1032,7 @@ class TestGradingFiles(unittest.TestCase):
         with tempfile.NamedTemporaryFile("w", delete=False) as h:
             h.write("x")
         try:
-            os.symlink(h.name, os.path.join(self.root, "tests", "link.py"))
+            symlink_or_skip(self, h.name, os.path.join(self.root, "tests", "link.py"))
             self.assertEqual(self.files(["python3", "tests/link.py"]), [])
         finally:
             os.unlink(h.name)
@@ -1076,6 +1077,28 @@ class TestGradingFiles(unittest.TestCase):
     def test_never_raises(self) -> None:
         self.assertEqual(runcheck.grading_hashes(None, self.root), {})
         self.assertEqual(runcheck.grading_hashes([3, None, "\x00bad"], self.root), {})
+
+
+class TestDecodeOutput(unittest.TestCase):
+    """A command's output is judged as text, so decoding must never lose it.
+    UTF-8 first (Node, Playwright), then the locale codec (a child Python or a
+    Windows tool printing a cp949 path), then UTF-8 with replacement."""
+
+    def test_utf8(self) -> None:
+        self.assertEqual(runcheck.decode_output("✔ 3 passed".encode("utf-8")), "✔ 3 passed")
+
+    def test_locale_codec_when_not_utf8(self) -> None:
+        raw = "/data/홍길동/package.json 없음".encode("cp949")
+        with mock.patch.object(runcheck.locale, "getpreferredencoding", return_value="cp949"):
+            self.assertEqual(runcheck.decode_output(raw), "/data/홍길동/package.json 없음")
+
+    def test_replacement_as_the_last_resort(self) -> None:
+        with mock.patch.object(runcheck.locale, "getpreferredencoding", return_value="no-such-codec"):
+            self.assertEqual(runcheck.decode_output(b"\xffOK"), "�OK")
+
+    def test_nothing_is_empty_text(self) -> None:
+        self.assertEqual(runcheck.decode_output(None), "")
+        self.assertEqual(runcheck.decode_output(b""), "")
 
 
 if __name__ == "__main__":

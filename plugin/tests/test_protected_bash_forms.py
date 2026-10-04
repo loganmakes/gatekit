@@ -14,6 +14,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from test_protected_state import PLUGIN, Project  # noqa: E402
+from tests._stubs import symlink_or_skip  # noqa: E402
 
 
 class Forms(Project):
@@ -180,10 +181,10 @@ class TestWholeStateDirectory(Forms):
     def test_user_owned_names_followed_through_links(self) -> None:
         from gatekit.gates import write as write_gate
         (self.root / ".gatekit" / "runs").mkdir()
-        (self.root / ".gatekit" / "eval").symlink_to(self.root / ".gatekit" / "runs",
-                                                    target_is_directory=True)
-        (self.root / ".gatekit" / "config.json").symlink_to(
-            self.root / ".gatekit" / "approvals.json")
+        symlink_or_skip(self, self.root / ".gatekit" / "runs", self.root / ".gatekit" / "eval",
+                        target_is_directory=True)
+        symlink_or_skip(self, self.root / ".gatekit" / "approvals.json",
+                        self.root / ".gatekit" / "config.json")
         self.assertIsNotNone(write_gate.protected_state(self.root, ".gatekit/eval/x.json"))
         self.assertIsNotNone(write_gate.protected_state(self.root, ".gatekit/config.json"))
 

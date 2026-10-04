@@ -39,7 +39,7 @@ def counting(crit_id: str, exit_code: int = 0, **extra) -> dict:
     code = (
         "import pathlib; p = pathlib.Path('test-results/runs.txt'); "
         "p.parent.mkdir(exist_ok=True); "
-        "p.write_text((p.read_text() if p.exists() else '') + '%s,'); "
+        "p.write_text((p.read_text(encoding='utf-8') if p.exists() else '') + '%s,'); "
         "raise SystemExit(%d)" % (crit_id, exit_code)
     )
     crit = {"id": crit_id, "argv": [PY, "-c", code], "timeout_s": 20}
@@ -51,7 +51,7 @@ def sleeping(crit_id: str, seconds: float, **extra) -> dict:
     code = (
         "import pathlib, time; p = pathlib.Path('test-results/runs.txt'); "
         "p.parent.mkdir(exist_ok=True); "
-        "p.write_text((p.read_text() if p.exists() else '') + '%s,'); "
+        "p.write_text((p.read_text(encoding='utf-8') if p.exists() else '') + '%s,'); "
         "time.sleep(%s)" % (crit_id, seconds)
     )
     crit = {"id": crit_id, "argv": [PY, "-c", code], "timeout_s": 20}
@@ -103,7 +103,7 @@ class Project(unittest.TestCase):
 
     def runs(self) -> list:
         path = self.root / "test-results" / "runs.txt"
-        return [p for p in path.read_text().split(",") if p] if path.exists() else []
+        return [p for p in path.read_text(encoding="utf-8").split(",") if p] if path.exists() else []
 
     def touch_source(self, name: str = "app.py") -> None:
         path = self.root / "src" / name
@@ -570,7 +570,7 @@ class TestStandDownSubprocess(Project):
                               input=json.dumps({"session_id": self.session,
                                                 "cwd": str(self.root),
                                                 "hook_event_name": "Stop"}),
-                              capture_output=True, text=True, env=env, timeout=60)
+                              capture_output=True, text=True, encoding="utf-8", env=env, timeout=60)
 
     def test_stood_down_hook_exits_zero_silently(self) -> None:
         self.write_contract(counting("c"))

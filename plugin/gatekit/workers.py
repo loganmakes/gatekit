@@ -19,7 +19,7 @@ import subprocess
 import sys
 from typing import Optional
 
-from gatekit import config, paths, verdict
+from gatekit import config, paths, runcheck, verdict
 
 #: Substrings that mark an argv as sandbox-bypassing. Matched case-insensitively
 #: against every argv element.
@@ -174,7 +174,7 @@ def _live_probe(root, name: str, exe: str) -> dict:
     except OSError as exc:
         return {"name": name, "verdict": verdict.UNVERIFIED,
                 "detail": "%s found; live probe could not run (%s)" % (name, exc)}
-    tail = (proc.stdout or b"").decode("utf-8", "replace").strip().replace("\n", " ")[-240:]
+    tail = runcheck.decode_output(proc.stdout).strip().replace("\n", " ")[-240:]
     if proc.returncode != 0:
         return {"name": name, "verdict": verdict.FAIL,
                 "detail": "%s found but a live probe exited %d — it cannot run a prompt here (not logged in, or sandboxed away from its credentials): %s"
@@ -238,7 +238,7 @@ def check(root, name: str, probe: bool = False) -> dict:
     if probe:
         return _live_probe(root, name, exe)
 
-    text = (proc.stdout or b"").decode("utf-8", "replace").strip().splitlines()
+    text = runcheck.decode_output(proc.stdout).strip().splitlines()
     first = text[0][:120] if text else ""
     if proc.returncode != 0:
         return {

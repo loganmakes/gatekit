@@ -14,7 +14,19 @@ gatekit 커널은 파이썬 표준 라이브러리만 쓴다. `pip install`이 �
 
 ## Windows에서 처음부터
 
-Windows PC에는 gatekit이 전제하는 것이 하나도 깔려 있지 않다. Claude Code도, Git도, 파이썬도 없고, `python`이라고 치면 Microsoft Store 안내용 자리표시자가 `Python`이라는 글자만 찍고 끝난다. 아래 순서를 **PowerShell**에서 그대로 따른다(관리자 권한은 필요 없다. 관리자로 열면 작업 폴더가 `system32`로 잡혀 헷갈리기만 한다).
+Windows PC에는 gatekit이 전제하는 것이 하나도 깔려 있지 않다. Claude Code도, Git도, 파이썬도 없고, `python`이라고 치면 Microsoft Store 안내용 자리표시자가 `Python`이라는 글자만 찍고 끝난다. **PowerShell**(관리자 권한 아님)에서 한 줄이면 된다(ADR-0033). 관리자로 연 창이면 설치 스크립트가 멈추고 다시 열라고 안내한다.
+
+```powershell
+irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.11/install/install.ps1 | iex
+```
+
+스크립트는 이미 있는 것은 건너뛰고 없는 것만 설치한다. Git, 진짜 파이썬 3.9 이상(Store 자리표시자는 치지 않는다), Claude Code를 `winget`과 공식 설치기로 깔고, 사용자 PATH를 고친다(자리표시자보다 앞에 진짜 파이썬, `.local\bin` 추가). 지금 창의 PATH를 새로 읽고, `PYTHONUTF8=1`을 설정한 뒤 플러그인을 설치하거나 업데이트한다. 끝에 항목마다 `ok`/`warn`/`fail`/`unverified`가 나온다. 시스템 PATH와 관리자 권한은 건드리지 않고, 다시 실행해도 안전하다. 업데이트도 같은 줄이다.
+
+그다음 PowerShell을 새로 열고 프로젝트 폴더에서 `claude`를 실행해 로그인한 뒤 `/gatekit:doctor`를 돌린다. 바꾸지 않고 계획만 보려면 `& ([scriptblock]::Create((irm <url>))) -DryRun`, 웹앱용 Node.js까지 깔려면 같은 형태로 `-WithNode`를 붙인다.
+
+### 설치 스크립트를 쓸 수 없을 때 (수동)
+
+`winget`이 없는 오래된 Windows이거나 스크립트 실행이 막힌 환경이면 아래 순서를 **PowerShell**에서 그대로 따른다(관리자 권한은 필요 없다. 관리자로 열면 작업 폴더가 `system32`로 잡혀 헷갈리기만 한다).
 
 1. 세 가지를 설치한다. 이미 있는 것은 `winget`이 그렇다고 알려준다.
 

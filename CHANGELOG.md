@@ -4,6 +4,45 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.16.11 — 2026-10-05
+
+A one-line Windows installer replaces the ten-step walkthrough (ADR-0033).
+
+### Added
+
+- **`install/install.ps1`: one line sets up gatekit on Windows.**
+  `irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.11/install/install.ps1 | iex`
+  checks before it acts and installs only what is missing: Git, a real
+  Python 3.9+ (the Microsoft Store placeholder under `WindowsApps` does not
+  count) and Claude Code. It puts a Python the placeholder shadows in front
+  of the user PATH, appends `.local\bin` when `claude.exe` is there but off
+  PATH, refreshes the running window, sets `PYTHONUTF8=1` unless the user
+  chose a value, and installs or updates the plugin. One row per item with
+  `ok` / `warn` / `fail` / `unverified`; exit 1 only on `fail`. Never
+  elevated, never the machine PATH, safe to rerun (rerunning is how to
+  update). `-DryRun`, `-WithNode`, `-Json`, `-Lang ko|en`; Korean when the
+  display language or the regional format is Korean. The file is ASCII so
+  it reads the same under `irm | iex` and `-File` on PowerShell 5.1, and it
+  never calls `exit` under `iex`. CI runs its dry-run plans against stubbed
+  machines on `windows-latest`; a real install was verified on an owner's
+  Windows PC.
+
+### Fixed
+
+- **The CI gates print their findings on any console** (#10). On a cp949
+  console `gate_clean_room` died with `UnicodeEncodeError` printing the em
+  dash in its own message, exit 1 with the finding lost. All nine
+  `tools/gate_*.py` set UTF-8 stdio through `tools/console.py`.
+
+### Docs
+
+- README, README.ko and the manual's Windows walkthrough lead with the
+  installer; the manual steps remain for when it cannot run.
+
+### Known limits
+
+- Codex is not covered by the installer (ADR-0033 decision 11).
+
 ## 0.16.10 — 2026-10-04
 
 Findings from running gatekit where a user would: on a Korean Windows host

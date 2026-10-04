@@ -61,8 +61,9 @@ rather than opening a public issue.
 
 Use GitHub's private vulnerability reporting: go to the repository's
 **Security** tab and click **Report a vulnerability**
-([direct link](https://github.com/LovelyPaul/gatekit/security/advisories/new)).
-That keeps the report visible only to the maintainer until a fix ships.
+([direct link](https://github.com/gatebound/gatebound/security/advisories/new)).
+That keeps the report visible only to the maintainer until a fix ships. If
+you can't use GitHub, email security@gatebound.dev instead.
 
 Include enough detail to reproduce the issue — the host (Claude Code or
 Codex), the gate involved, and the sequence that got past it. You will get

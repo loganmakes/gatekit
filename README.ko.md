@@ -61,7 +61,7 @@ gatekit은 [Claude Code](https://claude.com/claude-code)에서 AI 보조 개발�
 ## 설치
 
 ```
-/plugin marketplace add https://github.com/LovelyPaul/gatekit
+/plugin marketplace add https://github.com/gatebound/gatebound
 /plugin install gatekit@gatekit
 ```
 
@@ -70,7 +70,7 @@ gatekit은 [Claude Code](https://claude.com/claude-code)에서 AI 보조 개발�
 
 **Claude 데스크톱 앱.** 앱에서도 플러그인이 동작하고, 훅도 CLI와 똑같이
 실행됩니다. **+ → Plugins → Add plugin**을 눌러 마켓플레이스
-`https://github.com/LovelyPaul/gatekit`를 추가하고 `gatekit`을 설치한 뒤,
+`https://github.com/gatebound/gatebound`를 추가하고 `gatekit`을 설치한 뒤,
 *자기 프로젝트 폴더*를 여십시오. 터미널에서 사용자 범위로 설치한 플러그인은
 앱에서도 그대로 보이고, 그 반대도 같습니다. gatekit 저장소 자체를 앱의
 프로젝트로 여는 것은 설치가 아닙니다 — 모델이 커맨드 파일을 읽을 수는 있지만
@@ -86,7 +86,7 @@ gatekit은 [Claude Code](https://claude.com/claude-code)에서 AI 보조 개발�
 Codex도 같은 마켓플레이스에서 같은 플러그인을 설치합니다.
 
 ```
-codex plugin marketplace add LovelyPaul/gatekit
+codex plugin marketplace add gatebound/gatebound
 codex plugin add gatekit@gatekit
 ```
 
@@ -101,8 +101,8 @@ gatekit 훅을 검토·신뢰한 뒤, 앱이나 CLI에서 새 세션을 시작�
 예전 방식(생성된 호스트 층)으로 설정한 프로젝트는 그대로 동작합니다.
 
 ```
-git clone https://github.com/LovelyPaul/gatekit
-python3 "gatekit/plugin/bin/gatekit.py" install --host codex
+git clone https://github.com/gatebound/gatebound
+python3 "gatebound/plugin/bin/gatekit.py" install --host codex
 ```
 
 `.codex/hooks.json`, 커맨드별 스킬 `.agents/skills/gatekit-*`, `AGENTS.md`의

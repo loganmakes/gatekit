@@ -15,7 +15,7 @@ gatekit 커널은 파이썬 표준 라이브러리만 쓴다. `pip install`이 �
 ## 설치
 
 ```bash
-/plugin marketplace add https://github.com/LovelyPaul/gatekit
+/plugin marketplace add https://github.com/gatebound/gatebound
 /plugin install gatekit@gatekit
 ```
 
@@ -23,14 +23,14 @@ gatekit 커널은 파이썬 표준 라이브러리만 쓴다. `pip install`이 �
 
 ### Claude 데스크톱 앱 사용자
 
-앱에서도 플러그인과 훅이 CLI와 똑같이 동작한다. **+ → Plugins → Add plugin**에서 마켓플레이스 `https://github.com/LovelyPaul/gatekit`를 추가하고 `gatekit`을 설치한 뒤 **자기 프로젝트 폴더**를 연다. 터미널에서 사용자 범위로 설치했다면 앱에도 이미 있다. gatekit 저장소 폴더 자체를 앱으로 여는 것은 설치가 아니다 — 모델이 커맨드 파일을 읽어 흉내는 내지만 훅이 등록되지 않아 게이트가 하나도 돌지 않는다.
+앱에서도 플러그인과 훅이 CLI와 똑같이 동작한다. **+ → Plugins → Add plugin**에서 마켓플레이스 `https://github.com/gatebound/gatebound`를 추가하고 `gatekit`을 설치한 뒤 **자기 프로젝트 폴더**를 연다. 터미널에서 사용자 범위로 설치했다면 앱에도 이미 있다. gatekit 저장소 폴더 자체를 앱으로 여는 것은 설치가 아니다 — 모델이 커맨드 파일을 읽어 흉내는 내지만 훅이 등록되지 않아 게이트가 하나도 돌지 않는다.
 
 ### Codex 사용자 (앱·CLI)
 
 Codex도 같은 마켓플레이스에서 같은 플러그인을 설치한다.
 
 ```bash
-codex plugin marketplace add LovelyPaul/gatekit
+codex plugin marketplace add gatebound/gatebound
 codex plugin add gatekit@gatekit
 ```
 
@@ -39,8 +39,8 @@ codex plugin add gatekit@gatekit
 예전 방식(프로젝트마다 호스트 층 생성)도 계속 동작한다.
 
 ```bash
-git clone https://github.com/LovelyPaul/gatekit
-python3 "gatekit/plugin/bin/gatekit.py" install --host codex
+git clone https://github.com/gatebound/gatebound
+python3 "gatebound/plugin/bin/gatekit.py" install --host codex
 ```
 
 `.codex/hooks.json`, `.agents/skills/gatekit-*`(커맨드별 스킬), `AGENTS.md`의 관리 블록이 생긴다. 생성 파일은 손으로 고치지 않고 `plugin/`을 고친 뒤 다시 `install`한다. Codex가 프로젝트의 `.codex/` 층을 신뢰하겠느냐고 물으면 승인하고 **새 세션을 연다**. 호스트별로 되는 것과 `unverified`인 것은 README의 동등성 표에 있다.

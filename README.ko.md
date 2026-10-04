@@ -1,6 +1,6 @@
 # gatekit
 
-상태: 0.16.11 — 초기 단계. 라이선스: MIT.
+상태: 0.16.12 — 초기 단계. 라이선스: MIT.
 
 > **이름이 바뀔 예정입니다.** gatekit은 이번 스터디가 끝나면 **gatebound**로
 > 이름이 바뀝니다. 그때까지는 달라지는 것이 없습니다. 지금 설치,
@@ -77,13 +77,15 @@ gatekit은 [Claude Code](https://claude.com/claude-code)에서 AI 보조 개발�
 고치고, `PYTHONUTF8=1`을 설정한 뒤 gatekit을 설치하거나 업데이트합니다(ADR-0033).
 
 ```powershell
-irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.11/install/install.ps1 | iex
+irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.12/install/install.ps1 | iex
 ```
 
 그다음 PowerShell을 새로 열고, 프로젝트 폴더에서 `claude`를 실행해(처음이면
 로그인) `/gatekit:doctor`를 돌리세요. 업데이트할 때도 같은 줄을 다시 넣으면
 됩니다. 아무것도 바꾸지 않고 계획만 보려면
-`& ([scriptblock]::Create((irm <url>))) -DryRun`. Codex는 아직 포함하지 않습니다.
+`& ([scriptblock]::Create((irm <url>))) -DryRun`. 같은 형태로 `-WithCodex`를
+붙이면 Codex CLI도 설치합니다. 프로젝트에서 `install --host codex`를 실행하고
+`/hooks`에서 훅을 신뢰하기 전까지 마지막 줄은 `warn`으로 남습니다.
 
 **Claude 데스크톱 앱.** 앱에서도 플러그인이 동작하고, 훅도 CLI와 똑같이
 실행됩니다. **+ → Plugins → Add plugin**을 눌러 마켓플레이스
@@ -130,9 +132,9 @@ python3 "gatebound/plugin/bin/gatekit.py" install --host codex
 | | Claude Code | Codex CLI |
 |---|---|---|
 | 커널 CLI, 템플릿, `spec validate`, 계약 | ok | ok |
-| write 게이트 (스펙 우선, 태스크 범위) | ok | ok — 관측: `apply_patch`가 패치 본문과 함께 별도 이벤트로 도착해 승인 전 거부됨 |
-| bash 게이트 | ok | ok — 관측: code-mode `exec`가 셸 명령 하나당 `Bash` 이벤트로 풀려서 전달됨 |
-| powershell 게이트 (`PowerShell` 도구, Windows) | unverified — 도구 이름과 입력은 훅 문서 기준, 리더는 파싱 테스트로만 검증, 실제 Windows 세션은 아직 관측되지 않음 | n/a — Codex는 모든 셸 호출을 `Bash`로 보고함 |
+| write 게이트 (스펙 우선, 태스크 범위) | ok | ok — 관측: `apply_patch`가 패치 본문과 함께 별도 이벤트로 도착해 승인 전 거부됨. Windows에서는 훅이 PowerShell로 실행되므로 층에 `commandWindows`가 들어감 (ADR-0034, `/hooks`에서 신뢰한 상태로 관측) |
+| bash 게이트 | ok | ok — 관측: code-mode `exec`가 셸 명령 하나당 `Bash` 이벤트로 풀려서 전달됨. Windows에서는 그 내용이 PowerShell이라 PowerShell로도 읽음 (ADR-0035, 관측: `src/`로의 `Set-Content` 거부) |
+| powershell 게이트 (`PowerShell` 도구, Windows) | unverified — 도구 이름과 입력은 훅 문서 기준, 리더는 파싱 테스트로만 검증, 실제 Windows 세션은 아직 관측되지 않음 | 도구로는 n/a — Codex는 모든 셸 호출을 `Bash`로 보고함. Windows에서는 bash 게이트 안에서 PowerShell 판독이 돎 (ADR-0035) |
 | stop 게이트 (세션 종료 시 계약 실행) | ok | ok — Codex Stop 형식 |
 | prompt 게이트 (`active_pipeline`, 언어) | ok | ok — `$gatekit-<name>` 호출 인식 |
 | spawn 게이트 (서브에이전트 범위 펜스) | ok | warn — `collaborationspawn_agent`는 프롬프트를 훅에 숨겨 펜스를 검사할 수 없음. 서브에이전트의 쓰기는 write·bash 게이트를 그대로 거침(관측됨) |
@@ -267,7 +269,7 @@ spec/
 
 ## 상태
 
-**0.16.11 — 초기 단계.** 게이트/원장/계약/승인 커널, 워커 실행(호스트
+**0.16.12 — 초기 단계.** 게이트/원장/계약/승인 커널, 워커 실행(호스트
 세션 또는 다른 모델의 워커), Codex 평가자 지원, CI 강제 도구가 모두
 갖춰져 있으나, 아직 거친 부분이 있을 수 있습니다. 무엇이 출시되었는지는
 `CHANGELOG.md`를, 현재 구조의 배경이 된 아키텍처 결정은

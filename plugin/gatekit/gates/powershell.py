@@ -86,7 +86,12 @@ def handle(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     command = tool_input.get("command") if isinstance(tool_input, dict) else None
     if not isinstance(command, str) or not command.strip():
         return hookio.allow()
+    return judge(event, command)
 
+
+def judge(event: Dict[str, Any], command: str) -> Optional[Dict[str, Any]]:
+    """Judge *command* read as PowerShell, whatever tool carried it: also the
+    Bash gate's second reading under Codex on Windows (ADR-0035)."""
     root = hookio.event_root(event)
     if bash.too_large(command):
         # Not parsed (ADR-0028 amendment); the mention scan reads the text

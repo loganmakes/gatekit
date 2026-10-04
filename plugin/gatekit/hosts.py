@@ -140,15 +140,37 @@ def hook_command(script: str, suffix: str = "") -> str:
         INTERPRETER_PROBE, run, INTERPRETER_PROBE, run, run)
 
 
+def hook_command_windows(script: str, suffix: str = "") -> str:
+    """The Windows PowerShell 5.1 form of :func:`hook_command`, for Codex's
+    ``commandWindows`` (ADR-0034): Codex runs a hook command in PowerShell on
+    Windows, where ``||`` and ``&&`` are parse errors and nothing would run.
+    Same order and rules: each name is probed with its output discarded, ``py
+    -3`` is last, and no interpreter at all fails aloud."""
+    literal = "'%s'" % script.replace("'", "''")
+    probe = "'import sys;sys.exit(sys.version_info<(3,9))'"
+    found = "Get-Command %s -CommandType Application -ErrorAction SilentlyContinue"
+    return (
+        "$s=%s; foreach($n in 'python3','python'){ if(%s){ & $n -c %s *>$null; "
+        "if($LASTEXITCODE -eq 0){ & $n $s%s; exit $LASTEXITCODE } } }; "
+        "if(%s){ py -3 $s%s; exit $LASTEXITCODE }; "
+        "[Console]::Error.WriteLine('gatekit: no Python 3.9+ found as python3, python or py -3'); exit 1"
+    ) % (literal, found % "$n", probe, suffix, found % "py", suffix)
+
+
 _SCRIPT_IN_COMMAND_RE = re.compile(r'"([^"]+\.py)"')
+_SCRIPT_IN_PS_COMMAND_RE = re.compile(r"^\$s='((?:[^']|'')+\.py)'")
 
 
 def hook_script(command: str) -> str:
-    """The gate script a hook command runs: its first quoted ``*.py`` operand.
+    """The gate script a hook command runs: its first quoted ``*.py`` operand,
+    or the ``$s='…'`` literal of the PowerShell form (ADR-0034).
 
     The probe that precedes it (ADR-0030) is also quoted, so the first quoted
     segment is no longer the script.
     """
+    ps = _SCRIPT_IN_PS_COMMAND_RE.search(command or "")
+    if ps:
+        return ps.group(1).replace("''", "'")
     match = _SCRIPT_IN_COMMAND_RE.search(command or "")
     return match.group(1) if match else ""
 
@@ -168,6 +190,8 @@ def codex_hooks(plugin_root: pathlib.Path) -> Dict[str, Any]:
                 # ADR-0030: each name is probed silently before it runs the
                 # gate, so a Store placeholder never writes to the hook's stdout.
                 "command": hook_command(str(gates / script), " --host codex"),
+                # ADR-0034: on Windows Codex runs this one, in PowerShell.
+                "commandWindows": hook_command_windows(str(gates / script), " --host codex"),
                 "timeout": timeout if timeout is not None else stop_timeout,
             }
         ]

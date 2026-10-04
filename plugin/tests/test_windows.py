@@ -121,6 +121,99 @@ class TestHookInterpreterChain(unittest.TestCase):
             self.assertNotRegex(command, r'^python3 "')
 
 
+#: ADR-0034: constructs Windows PowerShell 5.1 rejects or misreads; a Codex
+#: hook command containing any of them runs nothing on Windows.
+PS51_REJECTS = ("||", "&&", "/dev/null", ">NUL")
+
+
+def _cmd_stub(bindir: pathlib.Path, name: str, body: str) -> None:
+    # cmd reads a batch file in the OEM code page; the interpreter's path may
+    # hold non-ASCII characters (a Korean user folder).
+    (bindir / (name + ".cmd")).write_text("@echo off\r\n" + body, encoding="oem")
+
+
+class TestCodexWindowsCommand(unittest.TestCase):
+    """ADR-0034: Codex on Windows runs a hook command in Windows PowerShell 5.1,
+    so the Codex layer carries a `commandWindows` that probes like ADR-0030."""
+
+    def _hooks(self) -> list:
+        from gatekit import hosts
+        data = hosts.codex_hooks(PLUGIN_DIR)
+        return [h for group in data["hooks"].values() for e in group for h in e["hooks"]]
+
+    def test_every_codex_hook_has_a_windows_command_for_the_same_script(self) -> None:
+        from gatekit import hosts
+        hooks = self._hooks()
+        self.assertTrue(hooks)
+        for h in hooks:
+            win = h.get("commandWindows", "")
+            self.assertIn("--host codex", win)
+            self.assertEqual(hosts.hook_script(win), hosts.hook_script(h["command"]))
+            self.assertTrue(hosts.hook_script(win).endswith(".py"), win)
+            for bad in PS51_REJECTS:
+                self.assertNotIn(bad, win)
+            # ADR-0030 order: python3, python, then py -3
+            self.assertLess(win.index("'python3','python'"), win.index("py -3"))
+
+    def test_a_quote_in_the_script_path_is_doubled(self) -> None:
+        from gatekit import hosts
+        win = hosts.hook_command_windows("C:/it's here/gate.py", " --host codex")
+        self.assertIn("$s='C:/it''s here/gate.py'", win)
+        self.assertEqual(hosts.hook_script(win), "C:/it's here/gate.py")
+
+
+@unittest.skipUnless(os.name == "nt" and shutil.which("powershell"), "needs Windows PowerShell")
+class TestCodexWindowsCommandRuns(unittest.TestCase):
+    """ADR-0034: the PowerShell form run the way Codex runs it, with PATH
+    holding only stubs, so each branch of the probe is exercised."""
+
+    def _run(self, bindir: pathlib.Path, script: pathlib.Path, stdin: str = "") -> subprocess.CompletedProcess:
+        from gatekit import hosts
+        env = dict(os.environ, PATH=str(bindir))
+        return subprocess.run(
+            [shutil.which("powershell"), "-NoProfile", "-NonInteractive", "-Command",
+             hosts.hook_command_windows(str(script), " --host codex")],
+            input=stdin, env=env, capture_output=True, text=True, timeout=60,
+        )
+
+    def _gate(self, bindir: pathlib.Path) -> pathlib.Path:
+        script = bindir / "gate's.py"
+        script.write_text(
+            "import json, sys\n"
+            "event = json.loads(sys.stdin.read())\n"
+            "print(json.dumps({'decision': 'deny', 'seen': event['tool_name'], 'argv': sys.argv[1:]}))\n",
+            encoding="utf-8")
+        return script
+
+    def test_placeholder_is_skipped_and_python_runs_the_gate_with_the_event(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bindir = pathlib.Path(tmp)
+            _cmd_stub(bindir, "python3", "<nul set /p=Python\r\nexit /b 49\r\n")
+            _cmd_stub(bindir, "python", '"%s" %%*\r\n' % sys.executable)
+            proc = self._run(bindir, self._gate(bindir), '{"tool_name": "apply_patch"}')
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(json.loads(proc.stdout),
+                         {"decision": "deny", "seen": "apply_patch", "argv": ["--host", "codex"]})
+
+    def test_py_launcher_is_reached_when_no_name_is_real(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bindir = pathlib.Path(tmp)
+            _cmd_stub(bindir, "python3", "<nul set /p=Python\r\nexit /b 49\r\n")
+            _cmd_stub(bindir, "python", "<nul set /p=Python\r\nexit /b 49\r\n")
+            _cmd_stub(bindir, "py", 'shift\r\n"%s" %%1 %%2 %%3 %%4\r\n' % sys.executable)
+            proc = self._run(bindir, self._gate(bindir), '{"tool_name": "Bash"}')
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(json.loads(proc.stdout)["seen"], "Bash")
+
+    def test_no_interpreter_fails_aloud(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bindir = pathlib.Path(tmp)
+            proc = self._run(bindir, self._gate(bindir), "{}")
+        self.assertEqual(proc.returncode, 1)
+        self.assertEqual(proc.stdout, "")
+        self.assertIn("no Python 3.9+", proc.stderr)
+
+
 class TestHookStdioIsUtf8(unittest.TestCase):
     """3b: a Korean prompt survives a cp949 console."""
 

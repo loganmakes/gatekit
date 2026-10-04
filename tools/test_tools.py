@@ -829,15 +829,15 @@ class TestInstallerPlan(unittest.TestCase):
 
     def test_a_working_machine_only_updates_gatekit(self) -> None:
         self.real_python(); self.git(); self.claude(); self.gatekit_installed()
-        proc, data = self.plan([self.realpy, self.windowsapps, self.gitdir, self.localbin, self.wingetdir],
+        proc, data = self.plan([self.realpy, self.windowsapps, self.gitdir, self.localbin, self.wingetdir,
+                                self.node()],
                                env={"GATEKIT_INSTALL_USER_PYTHONUTF8": "1"})
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        for item in ("git", "python", "claude", "pythonutf8"):
+        for item in ("git", "python", "claude", "pythonutf8", "node"):
             row = self.row(data, item)
             self.assertEqual((row["action"], row["verdict"]), ("skip", "ok"), row)
         self.assertEqual(self.rows(data, "path"), [])
         self.assertEqual(self.row(data, "gatekit")["action"], "update")
-        self.assertEqual(self.rows(data, "node"), [])  # only with -WithNode
 
     def test_a_user_pythonutf8_is_left_alone(self) -> None:
         _, data = self.plan([self.windowsapps, self.wingetdir], env={"GATEKIT_INSTALL_USER_PYTHONUTF8": "0"})
@@ -851,11 +851,24 @@ class TestInstallerPlan(unittest.TestCase):
             self.assertEqual((row["action"], row["verdict"]), ("manual", "unverified"), row)
             self.assertIn("https://", row["detail"])
 
-    def test_node_only_with_the_flag(self) -> None:
-        _, data = self.plan([self.windowsapps, self.wingetdir], extra=["-WithNode"])
+    def test_node_is_installed_by_default(self) -> None:
+        # ADR-0033 decision 13: the plain line installs a missing Node.js.
+        _, data = self.plan([self.windowsapps, self.wingetdir])
         row = self.row(data, "node")
-        self.assertEqual(row["action"], "install")
+        self.assertEqual((row["action"], row["verdict"]), ("install", "unverified"), row)
+        self.assertIn("OpenJS.NodeJS.LTS", row["detail"])
         self.assertIn("--accept-package-agreements", row["detail"])
+
+    def test_the_old_with_node_flag_is_still_accepted(self) -> None:
+        proc, data = self.plan([self.windowsapps, self.wingetdir], extra=["-WithNode"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(self.row(data, "node")["action"], "install")  # one row, as without it
+
+    def test_without_winget_node_is_unverified_with_a_manual_link(self) -> None:
+        _, data = self.plan([self.windowsapps])
+        row = self.row(data, "node")
+        self.assertEqual((row["action"], row["verdict"]), ("manual", "unverified"), row)
+        self.assertIn("https://nodejs.org", row["detail"])
 
     # ---- -WithCodex (ADR-0033 decision 12) -----------------------------
     def working(self) -> list:
@@ -892,6 +905,46 @@ class TestInstallerPlan(unittest.TestCase):
         row = self.row(data, "codex")
         self.assertEqual((row["action"], row["verdict"]), ("skip", "ok"), row)
         self.assertIn("0.160.0", row["detail"])
+
+    def test_a_blocking_execution_policy_turns_codex_into_a_warn(self) -> None:
+        # Observed 2026-10-05 on a second PC: npm's codex.ps1 wins over
+        # codex.cmd in PowerShell and the default policy refuses it, while the
+        # installer, which runs the .cmd, reported ok.
+        nodedir = self.node()
+        self.stub(nodedir / "codex", "echo codex-cli 0.160.0")
+        for policy in ("Restricted", "AllSigned"):
+            with self.subTest(policy=policy):
+                _, data = self.plan(self.working() + [nodedir], extra=["-WithCodex"],
+                                    env={"GATEKIT_INSTALL_EXECUTION_POLICY": policy})
+                row = self.row(data, "codex")
+                self.assertEqual(row["verdict"], "warn", row)
+                for needle in (policy, "Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned",
+                               "codex.cmd", "0.160.0"):
+                    self.assertIn(needle, row["detail"])
+
+    def test_a_permissive_execution_policy_keeps_codex_ok(self) -> None:
+        nodedir = self.node()
+        self.stub(nodedir / "codex", "echo codex-cli 0.160.0")
+        for policy in ("RemoteSigned", "Unrestricted", "Bypass"):
+            with self.subTest(policy=policy):
+                _, data = self.plan(self.working() + [nodedir], extra=["-WithCodex"],
+                                    env={"GATEKIT_INSTALL_EXECUTION_POLICY": policy})
+                self.assertEqual(self.row(data, "codex")["verdict"], "ok")
+
+    def test_a_planned_codex_install_names_the_policy_too(self) -> None:
+        _, data = self.plan(self.working() + [self.node()], extra=["-WithCodex"],
+                            env={"GATEKIT_INSTALL_EXECUTION_POLICY": "Restricted"})
+        row = self.row(data, "codex")
+        self.assertEqual((row["action"], row["verdict"]), ("install", "unverified"), row)
+        self.assertIn("RemoteSigned", row["detail"])
+
+    def test_the_policy_warning_follows_the_language(self) -> None:
+        nodedir = self.node()
+        self.stub(nodedir / "codex", "echo codex-cli 0.160.0")
+        _, data = self.plan(self.working() + [nodedir], extra=["-WithCodex"], lang="ko",
+                            env={"GATEKIT_INSTALL_EXECUTION_POLICY": "Restricted"})
+        detail = self.row(data, "codex")["detail"]
+        self.assertTrue(any("가" <= ch <= "힣" for ch in detail), detail)
 
     def test_without_npm_codex_waits_for_a_new_window(self) -> None:
         _, data = self.plan(self.working(), extra=["-WithCodex"])

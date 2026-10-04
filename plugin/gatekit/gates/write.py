@@ -401,6 +401,17 @@ def is_evaluator(root: pathlib.Path, job_id: str, task_id: str) -> bool:
     return isinstance(data, dict) and data.get("id") == EVAL_TASK_ID
 
 
+def spec_set_present(root: pathlib.Path) -> bool:
+    """True when ``spec/`` holds one of gatekit's spec files (ADR-0036).
+
+    Rule (a) starts here, not at any ``spec/`` directory: an RSpec project's
+    ``spec/`` is not gatekit's. The names are the spec set ``spec validate``
+    judges (``spec-kit/heading-map.json``)."""
+    from gatekit import spec  # deferred: only rule (a) needs the heading map
+    directory = paths.spec_dir(root)
+    return any((directory / name).is_file() for name in spec.spec_files())
+
+
 def restrictions_active(root: pathlib.Path) -> bool:
     """True when at least one of the two rules can currently deny a write.
 
@@ -412,7 +423,7 @@ def restrictions_active(root: pathlib.Path) -> bool:
     cfg = config.load(root)
     if not cfg.get("enforce_spec_before_code", True):
         return False
-    if not paths.spec_dir(root).is_dir():
+    if not spec_set_present(root):
         return False
     return approval.check(root, GATE_TARGET) != "ok"
 
@@ -460,7 +471,7 @@ def decide_path(root: pathlib.Path, raw_path: str, lang: str) -> Optional[Dict[s
     cfg = config.load(root)
     if not cfg.get("enforce_spec_before_code", True):
         return hookio.allow()
-    if not paths.spec_dir(root).is_dir():
+    if not spec_set_present(root):  # ADR-0036
         return hookio.allow()
     # ADR-0018 decision 3: rule (a) keeps *this project's* code waiting for
     # its approved gate; a file outside the project root is not that code.

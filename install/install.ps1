@@ -11,9 +11,10 @@
 # Options (pass them through a script block when piping:
 #   & ([scriptblock]::Create((irm <url>))) -DryRun
 #   -DryRun     print the plan, change nothing
-#   -WithNode   also install Node.js LTS (web projects only)
-#   -WithCodex  also install the Codex CLI (implies -WithNode); trusting the
-#               hooks in each project stays the user's step (ADR-0033 d12)
+#   -WithNode   accepted for old instructions; Node.js LTS is installed by
+#               default when missing (ADR-0033 decision 13)
+#   -WithCodex  also install the Codex CLI; trusting the hooks in each
+#               project stays the user's step (ADR-0033 d12)
 #   -Json       print the result as JSON instead of a table
 #   -Lang ko|en message language (default: from the Windows UI language)
 #
@@ -30,8 +31,6 @@ param(
 
 $code = & {
     $ErrorActionPreference = "Stop"
-    # The Codex CLI comes from npm (ADR-0033 decision 12).
-    if ($WithCodex) { $WithNode = $true }
 
     # ---- test seams -------------------------------------------------------
     # The tests stand in a fake profile, PATH, elevation and PYTHONUTF8. Seams
@@ -88,7 +87,8 @@ $code = & {
         'next_doctor' = 'In Claude, run  /gatekit:doctor  - rows 1 and 2 should read ok.'
         'codex_no_npm' = 'npm.cmd is not on PATH yet, so the Codex CLI was not installed. Open a new PowerShell window and run the installer again with -WithCodex.'
         'codex_hooks' = 'Codex runs gatekit''s gates only after you trust them, so two steps are left in each project: run  {0} "{1}" install --host codex , then run  codex  (codex --no-daemon if it stops with os error 5), type /hooks, press t on each gatekit hook and start a new session. Redo both after every gatekit update.'
-        'next_codex' = 'For Codex: do the two steps in the codex-hooks row in each project.'
+        'codex_policy' = ' PowerShell''s execution policy ({0}) blocks npm''s codex.ps1, so typing  codex  in PowerShell fails. Run once:  Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned  (your account only, no admin), or type  codex.cmd  instead.'
+        'next_codex' = 'For Codex: in each project folder, run the install --host codex command from the codex-hooks row, then trust the hooks in /hooks.'
     }
     $Ko = @{
         'elevated' = (U '\uAD00\uB9AC\uC790 \uAD8C\uD55C\uC73C\uB85C \uC5F0 \uCC3D\uC774\uC5D0\uC694. \uCC3D\uC744 \uB2EB\uACE0 PowerShell\uC744 \uC77C\uBC18\uC73C\uB85C("\uAD00\uB9AC\uC790 \uAD8C\uD55C\uC73C\uB85C \uC2E4\uD589" \uB9D0\uACE0) \uC5F0 \uB4A4 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.')
@@ -120,7 +120,8 @@ $code = & {
         'next_doctor' = (U 'Claude \uC548\uC5D0\uC11C /gatekit:doctor \uB97C \uC2E4\uD589\uD558\uC138\uC694. 1, 2\uBC88 \uC904\uC774 ok\uBA74 \uB3FC\uC694.')
         'codex_no_npm' = (U '\uC544\uC9C1 PATH\uC5D0 npm.cmd\uAC00 \uC5C6\uC5B4\uC11C Codex CLI\uB97C \uC124\uCE58\uD558\uC9C0 \uBABB\uD588\uC5B4\uC694. PowerShell\uC744 \uC0C8\uB85C \uC5F4\uACE0 -WithCodex\uB85C \uC124\uCE58 \uC2A4\uD06C\uB9BD\uD2B8\uB97C \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.')
         'codex_hooks' = (U 'Codex\uB294 \uC0AC\uC6A9\uC790\uAC00 \uC2E0\uB8B0\uD55C \uB4A4\uC5D0\uB9CC gatekit \uAC8C\uC774\uD2B8\uB97C \uC2E4\uD589\uD574\uC694. \uD504\uB85C\uC81D\uD2B8\uB9C8\uB2E4 \uB450 \uB2E8\uACC4\uAC00 \uB0A8\uC558\uC5B4\uC694: {0} "{1}" install --host codex \uB97C \uC2E4\uD589\uD558\uACE0, codex \uB97C \uC2E4\uD589\uD574(os error 5\uB85C \uBA48\uCD94\uBA74 codex --no-daemon) /hooks \uC5D0\uC11C gatekit \uD6C5\uB9C8\uB2E4 t \uB97C \uB204\uB978 \uB4A4 \uC0C8 \uC138\uC158\uC744 \uC5EC\uC138\uC694. gatekit\uC744 \uC5C5\uB370\uC774\uD2B8\uD560 \uB54C\uB9C8\uB2E4 \uB450 \uB2E8\uACC4\uB97C \uB2E4\uC2DC \uD558\uC138\uC694.')
-        'next_codex' = (U 'Codex\uB97C \uC4F4\uB2E4\uBA74: \uD504\uB85C\uC81D\uD2B8\uB9C8\uB2E4 codex-hooks \uC904\uC758 \uB450 \uB2E8\uACC4\uB97C \uD558\uC138\uC694.')
+        'codex_policy' = (U ' PowerShell \uC2E4\uD589 \uC815\uCC45({0})\uC774 npm\uC774 \uB9CC\uB4E0 codex.ps1\uC744 \uB9C9\uC544\uC11C PowerShell\uC5D0\uC11C codex \uB97C \uCE58\uBA74 \uC2E4\uD328\uD574\uC694. \uD55C \uBC88\uB9CC \uC2E4\uD589\uD558\uC138\uC694: Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned (\uB0B4 \uACC4\uC815\uB9CC, \uAD00\uB9AC\uC790 \uAD8C\uD55C \uD544\uC694 \uC5C6\uC74C). \uB610\uB294 codex \uB300\uC2E0 codex.cmd \uB97C \uC4F0\uC138\uC694.')
+        'next_codex' = (U 'Codex\uB97C \uC4F4\uB2E4\uBA74: \uD504\uB85C\uC81D\uD2B8 \uD3F4\uB354\uB9C8\uB2E4 \uACB0\uACFC \uD45C codex-hooks \uC904\uC5D0 \uC801\uD78C install --host codex \uBA85\uB839\uC744 \uC2E4\uD589\uD558\uACE0, /hooks \uC5D0\uC11C \uD6C5\uC744 \uC2E0\uB8B0\uD558\uC138\uC694.')
     }
     function T {
         param([string]$Key)
@@ -378,20 +379,18 @@ $code = & {
         }
     }
 
-    # ---- 6. Node.js (only with -WithNode) ---------------------------------
-    if ($WithNode) {
+    # ---- 6. Node.js LTS (by default, ADR-0033 decision 13) -----------------
+    $node = @(Find-Command "node") | Select-Object -First 1
+    if ($node) {
+        Add-Row "node" "ok" "skip" (Run-Quiet $node @("--version")).out
+    } elseif (Install-Package "node" "OpenJS.NodeJS.LTS" "https://nodejs.org/" "") {
+        $nodeDir = Join-Path ${env:ProgramFiles} "nodejs"
+        $npmDir = Join-Path $env:APPDATA "npm"
+        $back = @(@($nodeDir, $npmDir) | Where-Object { -not (On-Path $_) })
+        if ($back.Count -gt 0) { Set-UserPath -Front @() -Back $back; Add-Row "path" "ok" "append" (T "appended" ($back -join "; ")) }
         $node = @(Find-Command "node") | Select-Object -First 1
-        if ($node) {
-            Add-Row "node" "ok" "skip" (Run-Quiet $node @("--version")).out
-        } elseif (Install-Package "node" "OpenJS.NodeJS.LTS" "https://nodejs.org/" "") {
-            $nodeDir = Join-Path ${env:ProgramFiles} "nodejs"
-            $npmDir = Join-Path $env:APPDATA "npm"
-            $back = @(@($nodeDir, $npmDir) | Where-Object { -not (On-Path $_) })
-            if ($back.Count -gt 0) { Set-UserPath -Front @() -Back $back; Add-Row "path" "ok" "append" (T "appended" ($back -join "; ")) }
-            $node = @(Find-Command "node") | Select-Object -First 1
-            if ($node) { Add-Row "node" "ok" "install" (T "installed" (Run-Quiet $node @("--version")).out) }
-            else { Add-Row "node" "warn" "install" (T "new_window" "node") }
-        }
+        if ($node) { Add-Row "node" "ok" "install" (T "installed" (Run-Quiet $node @("--version")).out) }
+        else { Add-Row "node" "warn" "install" (T "new_window" "node") }
     }
 
     # ---- 7. Codex CLI (only with -WithCodex, ADR-0033 decision 12) ----------
@@ -402,12 +401,29 @@ $code = & {
         $codex = @(Find-Command "codex") | Select-Object -First 1
         $npm = @(Find-Command "npm.cmd") | Select-Object -First 1
         $npmCommand = "npm.cmd install -g @openai/codex"
+        # npm also writes codex.ps1, which PowerShell prefers to codex.cmd; a
+        # policy that refuses unsigned scripts leaves `codex` unusable even
+        # though the .cmd this script runs works (observed on a second PC).
+        # The policy is the one a NEW window gets: the Process scope is left
+        # out, since `-ExecutionPolicy Bypass -File install.ps1` sets only it.
+        # With every other scope Undefined, a Windows client is Restricted.
+        $Policy = Seam-Or "EXECUTION_POLICY" {
+            $byScope = @{}
+            foreach ($e in (Get-ExecutionPolicy -List)) { $byScope[[string]$e.Scope] = [string]$e.ExecutionPolicy }
+            $found = "Restricted"
+            foreach ($s in @("LocalMachine", "CurrentUser", "UserPolicy", "MachinePolicy")) {
+                if ($byScope[$s] -and $byScope[$s] -ne "Undefined") { $found = $byScope[$s] }
+            }
+            $found
+        }
+        $policyNote = if (@("Restricted", "AllSigned") -contains $Policy) { T "codex_policy" $Policy } else { "" }
+        $codexOk = if ($policyNote) { "warn" } else { "ok" }
         if ($codex) {
-            Add-Row "codex" "ok" "skip" (Run-Quiet $codex @("--version")).out
+            Add-Row "codex" $codexOk "skip" ((Run-Quiet $codex @("--version")).out + $policyNote)
         } elseif (-not $npm) {
             Add-Row "codex" "unverified" "manual" (T "codex_no_npm")
         } elseif ($DryRun) {
-            Add-Row "codex" "unverified" "install" (T "will_install" $npmCommand)
+            Add-Row "codex" "unverified" "install" ((T "will_install" $npmCommand) + $policyNote)
         } else {
             Say (T "installing" "Codex CLI")
             $r = Run-Quiet $npm @("install", "-g", "@openai/codex")
@@ -416,8 +432,8 @@ $code = & {
             Refresh-SessionPath
             $codex = @(Find-Command "codex") | Select-Object -First 1
             if (-not $r.ok) { Add-Row "codex" "fail" "install" (T "install_failed" $npmCommand "https://developers.openai.com/codex/cli") }
-            elseif ($codex) { Add-Row "codex" "ok" "install" (T "installed" (Run-Quiet $codex @("--version")).out) }
-            else { Add-Row "codex" "warn" "install" (T "new_window" "codex") }
+            elseif ($codex) { Add-Row "codex" $codexOk "install" ((T "installed" (Run-Quiet $codex @("--version")).out) + $policyNote) }
+            else { Add-Row "codex" "warn" "install" ((T "new_window" "codex") + $policyNote) }
         }
         $pluginRoot = "<gatekit plugin folder>"
         try {

@@ -1,6 +1,6 @@
 # gatekit
 
-상태: 0.16.12 — 초기 단계. 라이선스: MIT.
+상태: 0.16.13 — 초기 단계. 라이선스: MIT.
 
 > **이름이 바뀔 예정입니다.** gatekit은 이번 스터디가 끝나면 **gatebound**로
 > 이름이 바뀝니다. 그때까지는 달라지는 것이 없습니다. 지금 설치,
@@ -73,19 +73,30 @@ gatekit은 [Claude Code](https://claude.com/claude-code)에서 AI 보조 개발�
 반영됩니다.
 
 **Windows: 한 줄 설치.** PowerShell(관리자 권한 아님)에 아래 한 줄을 넣으면
-없는 것만 골라 설치합니다. Git, Python, Claude Code를 설치하고, 사용자 PATH를
+없는 것만 골라 설치합니다. Git, Python, Claude Code, Node.js LTS를 설치하고, 사용자 PATH를
 고치고, `PYTHONUTF8=1`을 설정한 뒤 gatekit을 설치하거나 업데이트합니다(ADR-0033).
 
 ```powershell
-irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.12/install/install.ps1 | iex
+irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.13/install/install.ps1 | iex
 ```
 
 그다음 PowerShell을 새로 열고, 프로젝트 폴더에서 `claude`를 실행해(처음이면
 로그인) `/gatekit:doctor`를 돌리세요. 업데이트할 때도 같은 줄을 다시 넣으면
 됩니다. 아무것도 바꾸지 않고 계획만 보려면
-`& ([scriptblock]::Create((irm <url>))) -DryRun`. 같은 형태로 `-WithCodex`를
-붙이면 Codex CLI도 설치합니다. 프로젝트에서 `install --host codex`를 실행하고
-`/hooks`에서 훅을 신뢰하기 전까지 마지막 줄은 `warn`으로 남습니다.
+`& ([scriptblock]::Create((irm <url>))) -DryRun`.
+
+**Windows + Codex: 한 줄 설치.** 같은 설치 스크립트에 Codex CLI까지
+설치합니다(ADR-0033 결정 12).
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.13/install/install.ps1))) -WithCodex
+```
+
+마지막 `codex-hooks` 줄은 Codex를 쓰는 프로젝트마다 두 가지를 하기 전까지
+`warn`으로 남습니다. 그 줄에 나온 `install --host codex` 명령을 실행하고,
+`codex`를 실행해(`os error 5`로 멈추면 `codex --no-daemon`) `/hooks`에서
+gatekit 훅마다 `t`를 누른 뒤 새 세션을 여세요. gatekit을 업데이트할 때마다
+두 가지를 다시 합니다.
 
 **Claude 데스크톱 앱.** 앱에서도 플러그인이 동작하고, 훅도 CLI와 똑같이
 실행됩니다. **+ → Plugins → Add plugin**을 눌러 마켓플레이스
@@ -96,13 +107,17 @@ irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.12/install/insta
 훅이 등록되지 않아 게이트가 하나도 돌지 않습니다.
 
 플러그인은 전역으로 설치되므로 훅은 여는 모든 프로젝트에서 로드됩니다.
-다만 `.gatekit/` 디렉터리가 없는 프로젝트에서는 게이트가 물러납니다 —
+다만 `.gatekit/` 디렉터리도, `spec/` 안의 gatekit 스펙 파일도 없는 프로젝트에서는
+게이트가 물러납니다(RSpec의 `spec/`는 해당하지 않음, ADR-0036) —
 아무것도 막지 않고 상태 파일도 만들지 않습니다. 그 프로젝트에서 `/gatekit:`
 커맨드를 처음 실행하는 순간부터 gatekit이 관여합니다.
 
 ### Codex (앱과 CLI)
 
-Codex도 같은 마켓플레이스에서 같은 플러그인을 설치합니다.
+Codex도 같은 마켓플레이스에서 같은 플러그인을 설치합니다. **Windows에서는
+아래 프로젝트 층 방식을 쓰세요**(위의 Codex 한 줄 설치가 준비해 줍니다).
+Windows의 Codex는 훅을 PowerShell로 실행하고, PowerShell 형식은 생성되는
+층에만 들어 있습니다. 플러그인 경로는 `unverified`입니다(ADR-0034).
 
 ```
 codex plugin marketplace add gatebound/gatebound
@@ -269,7 +284,7 @@ spec/
 
 ## 상태
 
-**0.16.12 — 초기 단계.** 게이트/원장/계약/승인 커널, 워커 실행(호스트
+**0.16.13 — 초기 단계.** 게이트/원장/계약/승인 커널, 워커 실행(호스트
 세션 또는 다른 모델의 워커), Codex 평가자 지원, CI 강제 도구가 모두
 갖춰져 있으나, 아직 거친 부분이 있을 수 있습니다. 무엇이 출시되었는지는
 `CHANGELOG.md`를, 현재 구조의 배경이 된 아키텍처 결정은

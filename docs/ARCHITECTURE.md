@@ -250,11 +250,19 @@ PreToolUse `PowerShell`→`gates/powershell.py` (ADR-0028; Claude Code's PowerSh
 PreToolUse `Agent|Task|collaborationspawn_agent`→`gates/spawn.py` (the Codex tool names are there so the same file serves a Codex plugin install, ADR-0019; a name that does not exist in a host never matches), PostToolUse `AskUserQuestion`→`gates/question.py`,
 Stop→`gates/stop.py`.
 
-**Platforms (ADR-0019).** Every hook command is
-`python3 "<script>" || python "<script>" || py -3 "<script>"` — valid in sh,
-Git Bash and CMD — so a host with only `python` or the Windows launcher still
-starts the gate; a gate always exits 0, so the chain only advances when an
-interpreter is missing. `hookio` reads stdin and writes stdout as UTF-8
+**Platforms (ADR-0019, ADR-0030).** Every hook command probes each
+interpreter name before trusting it:
+`(python3 -c "import sys;sys.exit(sys.version_info<(3,9))" >/dev/null 2>&1 && python3 "<script>") || (python … && python "<script>") || py -3 "<script>"`
+— POSIX sh, which Claude Code uses on every platform (Git Bash on Windows).
+A stock Windows ships `python3`/`python` as Microsoft Store placeholders that
+print `Python` to stdout and exit non-zero; without the probe their output
+prefixed the gate's JSON and the host dropped the decision (owner's PC,
+2026-10-04). A name runs the gate only after a silent probe proves it is a
+Python 3.9+; only the last attempt (`py -3`) may fail aloud, so a machine
+with no interpreter produces a hook error, never an allowed write.
+`hosts.hook_command` builds the form for both hooks.json and the Codex
+layer; `hosts.hook_script` reads the script back out of it. `doctor`'s
+python axis warns when a placeholder is on PATH. `hookio` reads stdin and writes stdout as UTF-8
 through the binary buffers, whatever the console's locale encoding. The
 write and Bash gates read Git Bash's `/c/<dir>/…` as `C:/<dir>/…` on Windows
 (`paths.from_msys`). `paths.expand_argv` also resolves a bare `argv[0]`

@@ -139,6 +139,9 @@ def _extract_command_paths(command: str) -> list[str]:
         tokens = command.split()
     paths = []
     for tok in tokens:
+        # ADR-0030 wraps each attempt in a subshell: `(python3 … "S")`, and
+        # shlex glues the closing paren onto the quoted path.
+        tok = tok.strip("()")
         if PLUGIN_ROOT_TOKEN in tok:
             paths.append(tok)
     return paths

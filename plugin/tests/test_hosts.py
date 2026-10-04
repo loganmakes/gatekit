@@ -55,8 +55,8 @@ class TestCodexInstall(HostProject):
         for group in data["hooks"].values():
             for entry in group:
                 for h in entry["hooks"]:
-                    script = h["command"].split('"')[1]
-                    self.assertTrue(pathlib.Path(script).is_file(), script)
+                    script = hosts.hook_script(h["command"])
+                    self.assertTrue(script and pathlib.Path(script).is_file(), h["command"])
 
     def test_stop_timeout_matches_claude_hooks(self) -> None:
         self.install()

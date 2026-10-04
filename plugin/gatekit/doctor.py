@@ -789,7 +789,34 @@ def axis_python(root) -> dict:
         return _axis("python", verdict.FAIL,
                      "python %s is below the required %d.%d" % (current, *MIN_PYTHON),
                      "install python 3.9 or newer")
+    placeholders = _store_placeholders()
+    if placeholders:
+        return _axis(
+            "python", verdict.WARN,
+            "python %s runs doctor, but %s on PATH %s the Microsoft Store placeholder "
+            "(prints 'Python', exits non-zero); hooks probe past it to `py -3` (ADR-0030)"
+            % (current, " and ".join("`%s`" % n for n in placeholders),
+               "is" if len(placeholders) == 1 else "are"),
+            "install Python 3.9+ (winget install Python.Python.3.12) or turn off the "
+            "python app execution alias in Windows settings")
     return _axis("python", verdict.OK, "python %s" % current)
+
+
+def _store_placeholders() -> list:
+    """Names on PATH that are Windows' Store placeholder, not an interpreter.
+
+    A stock Windows ships ``python.exe``/``python3.exe`` under
+    ``WindowsApps`` that print ``Python`` and exit non-zero; an owner's PC
+    showed them polluting hook stdout (ADR-0030). ``shutil.which`` is looked
+    up at call time so tests can substitute it.
+    """
+    import shutil as _shutil
+    found = []
+    for name in ("python3", "python"):
+        path = _shutil.which(name)
+        if path and "windowsapps" in path.lower():
+            found.append(name)
+    return found
 
 
 # ------------------------------------------------------------------- axis 8

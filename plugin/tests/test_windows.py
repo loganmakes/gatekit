@@ -24,17 +24,34 @@ from gatekit import hookio, jobs, paths  # noqa: E402
 
 PLUGIN_DIR = pathlib.Path(__file__).resolve().parents[1]
 
-#: python3 → python → py -3, each with the same quoted script path.
+#: ADR-0030: each name is probed silently before it runs the gate, so a Store
+#: placeholder that prints "Python" and exits non-zero never reaches stdout.
+PROBE = '-c "import sys;sys.exit(sys.version_info<(3,9))" >/dev/null 2>&1'
 CHAIN_RE = re.compile(
-    r'^python3 "(?P<s>\$\{CLAUDE_PLUGIN_ROOT\}/gatekit/gates/\w+\.py)"'
-    r' \|\| python "(?P=s)" \|\| py -3 "(?P=s)"$'
+    r'^\(python3 ' + re.escape(PROBE) + r' && python3 "(?P<s>\$\{CLAUDE_PLUGIN_ROOT\}/gatekit/gates/\w+\.py)"\)'
+    r' \|\| \(python ' + re.escape(PROBE) + r' && python "(?P=s)"\)'
+    r' \|\| py -3 "(?P=s)"$'
 )
 
 
-class TestHookInterpreterChain(unittest.TestCase):
-    """3a: a hook must start where only `python` or `py` exists."""
+def chain(script: str, suffix: str = "") -> str:
+    """The hook command for *script*, as hooks.json spells it."""
+    run = '"%s"%s' % (script, suffix)
+    return ("(python3 %s && python3 %s) || (python %s && python %s) || py -3 %s"
+            % (PROBE, run, PROBE, run, run))
 
-    def test_every_plugin_hook_tries_three_interpreters(self) -> None:
+
+def _stub(bindir: pathlib.Path, name: str, body: str) -> None:
+    path = bindir / name
+    path.write_text("#!/bin/sh\n" + body, encoding="utf-8")
+    path.chmod(path.stat().st_mode | stat.S_IEXEC)
+
+
+class TestHookInterpreterChain(unittest.TestCase):
+    """3a (ADR-0030): a hook must start where only `python` or `py` exists, and a
+    placeholder on PATH must not leak into the hook's stdout."""
+
+    def test_every_plugin_hook_probes_then_runs_three_interpreters(self) -> None:
         data = json.loads((PLUGIN_DIR / "hooks" / "hooks.json").read_text(encoding="utf-8"))
         commands = [h["command"] for group in data["hooks"].values() for e in group for h in e["hooks"]]
         self.assertTrue(commands)
@@ -45,20 +62,62 @@ class TestHookInterpreterChain(unittest.TestCase):
     def test_chain_falls_through_to_python_when_python3_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             bindir = pathlib.Path(tmp)
-            real = sys.executable
-            shim = bindir / "python"
-            shim.write_text('#!/bin/sh\nexec "%s" "$@"\n' % real, encoding="utf-8")
-            shim.chmod(shim.stat().st_mode | stat.S_IEXEC)
+            _stub(bindir, "python", 'exec "%s" "$@"\n' % sys.executable)
             script = bindir / "probe.py"
             script.write_text("print('ran')\n", encoding="utf-8")
-            command = 'python3 "{s}" || python "{s}" || py -3 "{s}"'.format(s=script)
             proc = subprocess.run(
-                [shutil.which("sh"), "-c", command],
+                [shutil.which("sh"), "-c", chain(str(script))],
                 env={"PATH": str(bindir)},  # no python3, no py
                 capture_output=True, text=True, timeout=30,
             )
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn("ran", proc.stdout)
+        self.assertEqual(proc.stdout, "ran\n")
+
+    @unittest.skipIf(os.name == "nt" or not shutil.which("sh"), "needs a POSIX sh")
+    def test_store_placeholder_never_reaches_stdout(self) -> None:
+        """Windows ships `python3`/`python` placeholders that print `Python`
+        with no newline and exit 49 (owner's PC, 2026-10-04). The old chain
+        produced `PythonPython{json}`; the probed chain must not."""
+        with tempfile.TemporaryDirectory() as tmp:
+            bindir = pathlib.Path(tmp)
+            _stub(bindir, "python3", "printf Python\nexit 49\n")
+            _stub(bindir, "python", "printf Python\nexit 49\n")
+            _stub(bindir, "py", 'shift\nexec "%s" "$@"\n' % sys.executable)  # py -3 <script>
+            script = bindir / "gate.py"
+            script.write_text("import json; print(json.dumps({'decision': 'deny'}))\n", encoding="utf-8")
+            old = 'python3 "{s}" || python "{s}" || py -3 "{s}"'.format(s=script)
+            polluted = subprocess.run([shutil.which("sh"), "-c", old], env={"PATH": str(bindir)},
+                                      capture_output=True, text=True, timeout=30)
+            clean = subprocess.run([shutil.which("sh"), "-c", chain(str(script))], env={"PATH": str(bindir)},
+                                   capture_output=True, text=True, timeout=30)
+        # the bug, pinned so the test is known to exercise it
+        self.assertTrue(polluted.stdout.startswith("PythonPython"), polluted.stdout)
+        # the fix
+        self.assertEqual(clean.returncode, 0, clean.stderr)
+        self.assertEqual(json.loads(clean.stdout), {"decision": "deny"})
+
+    @unittest.skipIf(os.name == "nt" or not shutil.which("sh"), "needs a POSIX sh")
+    def test_a_python2_on_path_is_skipped(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bindir = pathlib.Path(tmp)
+            # a "python3" whose version check fails, standing in for Python 2 or a broken install
+            _stub(bindir, "python3", 'case "$*" in *version_info*) exit 1;; esac\necho WRONG\n')
+            _stub(bindir, "python", 'exec "%s" "$@"\n' % sys.executable)
+            script = bindir / "gate.py"
+            script.write_text("print('ran')\n", encoding="utf-8")
+            proc = subprocess.run([shutil.which("sh"), "-c", chain(str(script))], env={"PATH": str(bindir)},
+                                  capture_output=True, text=True, timeout=30)
+        self.assertEqual(proc.stdout, "ran\n", proc.stderr)
+
+    def test_codex_layer_uses_the_same_probed_chain(self) -> None:
+        from gatekit import hosts
+        data = hosts.codex_hooks(PLUGIN_DIR)
+        commands = [h["command"] for group in data["hooks"].values() for e in group for h in e["hooks"]]
+        self.assertTrue(commands)
+        for command in commands:
+            self.assertIn("--host codex", command)
+            self.assertIn("(python3 %s && python3 " % PROBE, command)
+            self.assertNotRegex(command, r'^python3 "')
 
 
 class TestHookStdioIsUtf8(unittest.TestCase):

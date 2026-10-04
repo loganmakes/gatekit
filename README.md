@@ -51,12 +51,17 @@ that matter into things a hook enforces:
 - **Claude Code** on a paid plan (Claude Code is not part of the free tier),
   or Codex (app or CLI) — see [Codex](#codex-app-and-cli) below.
 - **Python 3.9 or newer**, reachable as `python3`, `python` or `py -3` —
-  each hook tries them in that order. Nothing else is needed: gatekit is
-  standard library only, with no `pip install` step.
+  each hook probes them in that order and runs under the first real one.
+  On Windows, install it yourself (`winget install Python.Python.3.12`): the
+  `python`/`python3` a stock Windows ships are Microsoft Store placeholders,
+  not interpreters, and `doctor` warns when it sees them. Nothing else is
+  needed: gatekit is standard library only, with no `pip install` step.
 - **Windows (preview).** Native Windows is supported in the same release,
   but no participant has run a full session on it yet; CI proves the Python
   code on `windows-latest`, not that a host calls the hooks there. For
-  Claude Code, install Git for Windows (Claude Code then runs hooks through
+  Claude Code, follow the Windows walkthrough in the manual
+  (`docs/manual/02-install.md`, "Windows에서 처음부터": Git, Python, Claude
+  Code, then the plugin) — install Git for Windows (Claude Code then runs hooks through
   Git Bash). Shell commands Claude Code runs through its `PowerShell` tool
   meet the same rules as Bash (the powershell gate, ADR-0028). WSL also
   works and behaves like any Linux host. A report from a real Windows

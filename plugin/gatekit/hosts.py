@@ -125,6 +125,34 @@ def _claude_stop_timeout(plugin_root: pathlib.Path) -> int:
     return int(hooks["hooks"]["Stop"][0]["hooks"][0]["timeout"])
 
 
+#: ADR-0030: the probe a hook runs, output discarded, before trusting a name.
+INTERPRETER_PROBE = '-c "import sys;sys.exit(sys.version_info<(3,9))" >/dev/null 2>&1'
+
+
+def hook_command(script: str, suffix: str = "") -> str:
+    """The sh command that runs *script* under the first name that is a real
+    Python 3.9+: ``(python3 probe && python3 S) || (python probe && python S)
+    || py -3 S``. A placeholder or a Python 2 fails its probe silently; only a
+    missing ``py`` launcher is allowed to fail aloud, so the host sees an error
+    rather than an allowed write (ADR-0030)."""
+    run = '"%s"%s' % (script, suffix)
+    return "(python3 %s && python3 %s) || (python %s && python %s) || py -3 %s" % (
+        INTERPRETER_PROBE, run, INTERPRETER_PROBE, run, run)
+
+
+_SCRIPT_IN_COMMAND_RE = re.compile(r'"([^"]+\.py)"')
+
+
+def hook_script(command: str) -> str:
+    """The gate script a hook command runs: its first quoted ``*.py`` operand.
+
+    The probe that precedes it (ADR-0030) is also quoted, so the first quoted
+    segment is no longer the script.
+    """
+    match = _SCRIPT_IN_COMMAND_RE.search(command or "")
+    return match.group(1) if match else ""
+
+
 def codex_hooks(plugin_root: pathlib.Path) -> Dict[str, Any]:
     """The ``.codex/hooks.json`` document for this plugin checkout."""
     gates = pathlib.Path(plugin_root) / "gatekit" / "gates"
@@ -137,11 +165,9 @@ def codex_hooks(plugin_root: pathlib.Path) -> Dict[str, Any]:
         entry["hooks"] = [
             {
                 "type": "command",
-                # ADR-0019: python3 → python → py -3, valid in sh and CMD.
-                "command": " || ".join(
-                    '%s "%s" --host codex' % (py, gates / script)
-                    for py in ("python3", "python", "py -3")
-                ),
+                # ADR-0030: each name is probed silently before it runs the
+                # gate, so a Store placeholder never writes to the hook's stdout.
+                "command": hook_command(str(gates / script), " --host codex"),
                 "timeout": timeout if timeout is not None else stop_timeout,
             }
         ]
@@ -401,8 +427,7 @@ def status(root: pathlib.Path, host: str, plugin_root: Optional[pathlib.Path] = 
         return {"verdict": verdict.FAIL, "detail": ".codex/hooks.json unreadable: %s" % exc, "fix": fix}
     missing = []
     for command in commands:
-        parts = command.split('"')
-        script = parts[1] if len(parts) > 1 else ""
+        script = hook_script(command)
         if not script or not pathlib.Path(script).is_file():
             missing.append(script or command)
     if missing:

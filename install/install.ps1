@@ -1,0 +1,423 @@
+# gatekit installer for Windows (ADR-0033).
+#
+#   irm https://raw.githubusercontent.com/gatebound/gatebound/<tag>/install/install.ps1 | iex
+#
+# Checks what is present and installs only what is missing: Git, Python 3.9+
+# (the Microsoft Store placeholder does not count), Claude Code, the user
+# PATH entries they need, PYTHONUTF8=1, and the gatekit plugin (installed, or
+# updated when already there). Never elevated, never the machine PATH, safe to
+# run again. Ends with one row per item: ok / warn / fail / unverified.
+#
+# Options (pass them through a script block when piping:
+#   & ([scriptblock]::Create((irm <url>))) -DryRun
+#   -DryRun     print the plan, change nothing
+#   -WithNode   also install Node.js LTS (web projects only)
+#   -Json       print the result as JSON instead of a table
+#   -Lang ko|en message language (default: from the Windows UI language)
+#
+# The file is ASCII on purpose: Windows PowerShell 5.1 reads a file without a
+# BOM in the ANSI code page, and a BOM breaks `irm | iex`. Korean messages are
+# \u-escaped and unescaped at run time.
+param(
+    [switch]$DryRun,
+    [switch]$WithNode,
+    [switch]$Json,
+    [string]$Lang = ""
+)
+
+$code = & {
+    $ErrorActionPreference = "Stop"
+
+    # ---- test seams -------------------------------------------------------
+    # The tests stand in a fake profile, PATH, elevation and PYTHONUTF8. Seams
+    # are read here and only here, and never outside -DryRun, so a stray
+    # environment variable cannot steer a real install.
+    function Get-Seam {
+        param([string]$Name)
+        if (-not $DryRun) { return $null }
+        return [Environment]::GetEnvironmentVariable("GATEKIT_INSTALL_" + $Name, "Process")
+    }
+    $Testing = $null -ne (Get-Seam "HOME")
+
+    function Seam-Or {
+        param([string]$Name, [scriptblock]$Real)
+        if ($Testing) { $v = Get-Seam $Name; if ($null -eq $v) { return "" } else { return $v } }
+        return (& $Real)
+    }
+
+    # ---- language ---------------------------------------------------------
+    # Korean when either the display language or the regional format is
+    # Korean: a Korean user on an English-display Windows (observed on the
+    # study PC: UI en-US, format ko-KR) still reads Korean.
+    if ($Lang -ne "ko" -and $Lang -ne "en") {
+        $Lang = if ((Get-UICulture).Name -like "ko*" -or (Get-Culture).Name -like "ko*") { "ko" } else { "en" }
+    }
+    function U { param([string]$s) return [regex]::Unescape($s) }
+    $En = @{
+        'elevated' = 'This window runs as administrator. Close it, open PowerShell normally (not ''Run as administrator'') and run the installer again.'
+        'no_winget' = 'winget is not available here, so nothing was installed. Install it by hand: {0}'
+        'will_install' = 'will install with: {0}'
+        'installing' = 'installing {0} ...'
+        'install_failed' = 'installing {0} failed. Install it by hand: {1}'
+        'installed' = 'installed: {0}'
+        'new_window' = 'installed, but this window cannot find {0} yet. Open a new PowerShell window and run the installer again.'
+        'placeholder_only' = 'only the Microsoft Store placeholder (WindowsApps\python.exe) was found, which is not a Python. '
+        'will_prepend' = 'will put in front of your user PATH, ahead of the Store placeholder: {0}'
+        'prepended' = 'put in front of your user PATH: {0}'
+        'will_append' = 'will add to the end of your user PATH: {0}'
+        'appended' = 'added to the end of your user PATH: {0}'
+        'off_path' = 'found at {0}, but not on PATH'
+        'utf8_kept' = 'PYTHONUTF8={0} is already set for your account; left as it is'
+        'will_set_utf8' = 'will set PYTHONUTF8=1 for your account'
+        'set_utf8' = 'set PYTHONUTF8=1 for your account'
+        'will_run' = 'will run: {0}'
+        'running' = 'running: {0}'
+        'no_claude' = 'Claude Code is not available, so the plugin was not installed. Open a new PowerShell window and run the installer again.'
+        'step_failed' = '{0} failed'
+        'gatekit_ready' = 'gatekit {0} is installed'
+        'dry_run' = 'dry run: nothing was changed'
+        'next' = 'Next:'
+        'next_window' = 'Open a new PowerShell window.'
+        'next_folder' = 'Go to your project folder, e.g.  Set-Location "$HOME\study\my-app"'
+        'next_claude' = 'Run  claude  (it opens a browser to log in on the first run).'
+        'next_doctor' = 'In Claude, run  /gatekit:doctor  - rows 1 and 2 should read ok.'
+    }
+    $Ko = @{
+        'elevated' = (U '\uAD00\uB9AC\uC790 \uAD8C\uD55C\uC73C\uB85C \uC5F0 \uCC3D\uC774\uC5D0\uC694. \uCC3D\uC744 \uB2EB\uACE0 PowerShell\uC744 \uC77C\uBC18\uC73C\uB85C("\uAD00\uB9AC\uC790 \uAD8C\uD55C\uC73C\uB85C \uC2E4\uD589" \uB9D0\uACE0) \uC5F0 \uB4A4 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.')
+        'no_winget' = (U '\uC774 PC\uC5D0\uB294 winget\uC774 \uC5C6\uC5B4\uC11C \uC124\uCE58\uD558\uC9C0 \uBABB\uD588\uC5B4\uC694. \uC9C1\uC811 \uC124\uCE58\uD558\uC138\uC694: {0}')
+        'will_install' = (U '\uB2E4\uC74C \uBA85\uB839\uC73C\uB85C \uC124\uCE58\uD574\uC694: {0}')
+        'installing' = (U '{0} \uC124\uCE58 \uC911 ...')
+        'install_failed' = (U '{0} \uC124\uCE58\uC5D0 \uC2E4\uD328\uD588\uC5B4\uC694. \uC9C1\uC811 \uC124\uCE58\uD558\uC138\uC694: {1}')
+        'installed' = (U '\uC124\uCE58\uD588\uC5B4\uC694: {0}')
+        'new_window' = (U '\uC124\uCE58\uB294 \uB410\uC9C0\uB9CC \uC774 \uCC3D\uC5D0\uC11C\uB294 \uC544\uC9C1 {0}\uC744(\uB97C) \uBABB \uCC3E\uC544\uC694. PowerShell\uC744 \uC0C8\uB85C \uC5F4\uACE0 \uC124\uCE58 \uC2A4\uD06C\uB9BD\uD2B8\uB97C \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.')
+        'placeholder_only' = (U 'Microsoft Store\uC758 \uAC00\uC9DC python(WindowsApps\\python.exe)\uB9CC \uC788\uC5B4\uC694. \uC9C4\uC9DC Python\uC774 \uC544\uB2C8\uC5D0\uC694. ')
+        'will_prepend' = (U '\uC0AC\uC6A9\uC790 PATH \uB9E8 \uC55E(Store \uAC00\uC9DC python\uBCF4\uB2E4 \uC55E)\uC5D0 \uB123\uC744\uAC8C\uC694: {0}')
+        'prepended' = (U '\uC0AC\uC6A9\uC790 PATH \uB9E8 \uC55E\uC5D0 \uB123\uC5C8\uC5B4\uC694: {0}')
+        'will_append' = (U '\uC0AC\uC6A9\uC790 PATH \uB05D\uC5D0 \uCD94\uAC00\uD560\uAC8C\uC694: {0}')
+        'appended' = (U '\uC0AC\uC6A9\uC790 PATH \uB05D\uC5D0 \uCD94\uAC00\uD588\uC5B4\uC694: {0}')
+        'off_path' = (U '{0}\uC5D0 \uC788\uC9C0\uB9CC PATH\uC5D0 \uC5C6\uC5B4\uC694')
+        'utf8_kept' = (U '\uACC4\uC815\uC5D0 PYTHONUTF8={0}\uC774(\uAC00) \uC774\uBBF8 \uC788\uC5B4\uC11C \uADF8\uB300\uB85C \uB46C\uC694')
+        'will_set_utf8' = (U '\uACC4\uC815\uC5D0 PYTHONUTF8=1\uC744 \uC124\uC815\uD560\uAC8C\uC694')
+        'set_utf8' = (U '\uACC4\uC815\uC5D0 PYTHONUTF8=1\uC744 \uC124\uC815\uD588\uC5B4\uC694')
+        'will_run' = (U '\uB2E4\uC74C\uC744 \uC2E4\uD589\uD560\uAC8C\uC694: {0}')
+        'running' = (U '\uC2E4\uD589 \uC911: {0}')
+        'no_claude' = (U 'Claude Code\uB97C \uCC3E\uC9C0 \uBABB\uD574 \uD50C\uB7EC\uADF8\uC778\uC744 \uC124\uCE58\uD558\uC9C0 \uBABB\uD588\uC5B4\uC694. PowerShell\uC744 \uC0C8\uB85C \uC5F4\uACE0 \uC124\uCE58 \uC2A4\uD06C\uB9BD\uD2B8\uB97C \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.')
+        'step_failed' = (U '{0} \uC2E4\uD589\uC5D0 \uC2E4\uD328\uD588\uC5B4\uC694')
+        'gatekit_ready' = (U 'gatekit {0} \uC124\uCE58\uB428')
+        'dry_run' = (U '\uBBF8\uB9AC \uBCF4\uAE30: \uC544\uBB34\uAC83\uB3C4 \uBC14\uAFB8\uC9C0 \uC54A\uC558\uC5B4\uC694')
+        'next' = (U '\uB2E4\uC74C \uD560 \uC77C:')
+        'next_window' = (U 'PowerShell\uC744 \uC0C8\uB85C \uC5EC\uC138\uC694.')
+        'next_folder' = (U '\uD504\uB85C\uC81D\uD2B8 \uD3F4\uB354\uB85C \uAC00\uC138\uC694. \uC608:  Set-Location "$HOME\\study\\my-app"')
+        'next_claude' = (U 'claude \uB97C \uC2E4\uD589\uD558\uC138\uC694 (\uCC98\uC74C\uC774\uBA74 \uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C \uB85C\uADF8\uC778).')
+        'next_doctor' = (U 'Claude \uC548\uC5D0\uC11C /gatekit:doctor \uB97C \uC2E4\uD589\uD558\uC138\uC694. 1, 2\uBC88 \uC904\uC774 ok\uBA74 \uB3FC\uC694.')
+    }
+    function T {
+        param([string]$Key)
+        $table = if ($Lang -eq "ko") { $Ko } else { $En }
+        $text = $table[$Key]
+        if ($null -eq $text) { $text = $En[$Key] }
+        if ($args.Count -gt 0) { return ($text -f $args) }
+        return $text
+    }
+
+    # ---- what the machine looks like --------------------------------------
+    $UserHome = Seam-Or "HOME" { $HOME }
+    $UserPath = Seam-Or "USER_PATH" { [Environment]::GetEnvironmentVariable("Path", "User") }
+    $MachinePath = Seam-Or "MACHINE_PATH" { [Environment]::GetEnvironmentVariable("Path", "Machine") }
+    $UserUtf8 = Seam-Or "USER_PYTHONUTF8" { [Environment]::GetEnvironmentVariable("PYTHONUTF8", "User") }
+    $Elevated = Seam-Or "ELEVATED" {
+        $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+        if ((New-Object Security.Principal.WindowsPrincipal $id).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { "1" } else { "0" }
+    }
+    $LocalBin = Join-Path $UserHome ".local\bin"
+    $PluginsDir = Join-Path $UserHome ".claude\plugins"
+    $Rows = New-Object System.Collections.ArrayList
+
+    function Add-Row {
+        param([string]$Item, [string]$Verdict, [string]$Action, [string]$Detail)
+        [void]$Rows.Add([ordered]@{ item = $Item; verdict = $Verdict; action = $Action; detail = $Detail })
+    }
+    function Say { param([string]$Text) if (-not $Json) { Write-Host $Text } }
+
+    function Split-PathList { param([string]$List) return @($List -split ";" | Where-Object { $_ -ne "" }) }
+    function Same-Dir {
+        param([string]$A, [string]$B)
+        return ($A.TrimEnd("\") -ieq $B.TrimEnd("\"))
+    }
+    function On-Path {
+        param([string]$Dir)
+        foreach ($d in (Split-PathList ($MachinePath + ";" + $UserPath))) { if (Same-Dir $d $Dir) { return $true } }
+        return $false
+    }
+    function Find-Command {
+        param([string]$Name)
+        return @(Get-Command $Name -All -CommandType Application -ErrorAction SilentlyContinue | ForEach-Object { $_.Source })
+    }
+    function Run-Quiet {
+        param([string]$Exe, [string[]]$Arguments)
+        # A native tool's stderr must not turn into a terminating error here.
+        $ErrorActionPreference = "Continue"
+        try {
+            $out = & $Exe @Arguments 2>&1 | Out-String
+            return @{ ok = ($LASTEXITCODE -eq 0); out = $out.Trim() }
+        } catch {
+            return @{ ok = $false; out = $_.Exception.Message }
+        }
+    }
+    function Refresh-SessionPath {
+        if ($Testing) { return }
+        $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
+    }
+    function Set-UserPath {
+        param([string[]]$Front, [string[]]$Back)
+        $keep = @(Split-PathList $UserPath | Where-Object {
+            $entry = $_
+            -not (@($Front + $Back) | Where-Object { Same-Dir $_ $entry })
+        })
+        $new = (@($Front) + $keep + @($Back) | Where-Object { $_ }) -join ";"
+        [Environment]::SetEnvironmentVariable("Path", $new, "User")
+        Set-Variable -Name UserPath -Value $new -Scope 1
+        Refresh-SessionPath
+    }
+
+    # Python 3.9+: the same probe the hooks use (ADR-0030), with no shell
+    # metacharacters: hexversion // 0x03090000 is 0 below 3.9.
+    $Probe = "import sys; sys.exit(sys.hexversion // 50921472 == 0)"
+    function Test-Python {
+        param([string]$Exe, [string[]]$Pre)
+        $r = Run-Quiet $Exe (@($Pre) + @("-c", $Probe))
+        return $r.ok
+    }
+    function Find-Python {
+        $placeholder = $null
+        # `python` is shadowed when the first `python` on PATH is the Store
+        # placeholder while a real one sits further down. A placeholder
+        # `python3` is harmless: the hooks skip it (ADR-0030).
+        $pythons = @(Find-Command "python")
+        $shadowed = ($pythons.Count -gt 0) -and ($pythons[0] -match "\\WindowsApps\\")
+        foreach ($name in @("python3", "python")) {
+            foreach ($p in (Find-Command $name)) {
+                if ($p -match "\\WindowsApps\\") { if ($null -eq $placeholder) { $placeholder = $p }; continue }
+                if (Test-Python $p @()) {
+                    return @{ path = $p; placeholder = $placeholder; shadowed = $shadowed }
+                }
+            }
+        }
+        foreach ($p in (Find-Command "py")) {
+            if (Test-Python $p @("-3")) {
+                $exe = (Run-Quiet $p @("-3", "-c", "import sys; print(sys.executable)")).out
+                return @{ path = $exe; placeholder = $placeholder; shadowed = $false; launcher = $true }
+            }
+        }
+        return @{ path = $null; placeholder = $placeholder }
+    }
+
+    $Winget = @(Find-Command "winget") | Select-Object -First 1
+    $Agree = "--source winget --accept-source-agreements --accept-package-agreements"
+
+    function Install-Package {
+        # One winget package: plan it, or install it and say how it went.
+        param([string]$Item, [string]$Id, [string]$ManualUrl, [string]$Note)
+        $command = "winget install --id $Id -e $Agree"
+        if (-not $Winget) {
+            Add-Row $Item "unverified" "manual" ($Note + (T "no_winget" $ManualUrl))
+            return $false
+        }
+        if ($DryRun) {
+            Add-Row $Item "unverified" "install" ($Note + (T "will_install" $command))
+            return $false
+        }
+        Say (T "installing" $Id)
+        $r = Run-Quiet $Winget (@("install", "--id", $Id, "-e") + ($Agree -split " "))
+        Refresh-SessionPath
+        if (-not $r.ok) {
+            Add-Row $Item "fail" "install" (T "install_failed" $Id $ManualUrl)
+            return $false
+        }
+        return $true
+    }
+
+    # ---- 0. elevation -----------------------------------------------------
+    if ($Elevated -eq "1") {
+        Add-Row "elevation" "fail" "refuse" (T "elevated")
+    } else {
+
+    # ---- 1. Git -----------------------------------------------------------
+    $git = @(Find-Command "git") | Select-Object -First 1
+    if ($git) {
+        Add-Row "git" "ok" "skip" (Run-Quiet $git @("--version")).out
+    } elseif (Install-Package "git" "Git.Git" "https://git-scm.com/downloads/win" "") {
+        $git = @(Find-Command "git") | Select-Object -First 1
+        if ($git) { Add-Row "git" "ok" "install" (T "installed" (Run-Quiet $git @("--version")).out) }
+        else { Add-Row "git" "warn" "install" (T "new_window" "git") }
+    }
+
+    # ---- 2. Python 3.9+ ---------------------------------------------------
+    $py = Find-Python
+    if ($py.path) {
+        $ver = (Run-Quiet $py.path @("--version")).out
+        Add-Row "python" "ok" "skip" ("{0} ({1})" -f $ver, $py.path)
+        if ($py.shadowed) {
+            $dir = Split-Path $py.path -Parent
+            $dirs = @($dir)
+            if (Test-Path (Join-Path $dir "Scripts")) { $dirs += (Join-Path $dir "Scripts") }
+            if ($DryRun) { Add-Row "path" "unverified" "prepend" (T "will_prepend" ($dirs -join "; ")) }
+            else { Set-UserPath -Front $dirs -Back @(); Add-Row "path" "ok" "prepend" (T "prepended" ($dirs -join "; ")) }
+        }
+    } else {
+        $note = if ($py.placeholder) { T "placeholder_only" } else { "" }
+        if (Install-Package "python" "Python.Python.3.12" "https://www.python.org/downloads/windows/" $note) {
+            $py = Find-Python
+            if (-not $py.path) {
+                $base = Join-Path $UserHome "AppData\Local\Programs\Python"
+                $dir = @(Get-ChildItem $base -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1)
+                if ($dir) {
+                    Set-UserPath -Front @($dir[0].FullName, (Join-Path $dir[0].FullName "Scripts")) -Back @()
+                    Add-Row "path" "ok" "prepend" (T "prepended" $dir[0].FullName)
+                    $py = Find-Python
+                }
+            }
+            if ($py.path) { Add-Row "python" "ok" "install" (T "installed" (Run-Quiet $py.path @("--version")).out) }
+            else { Add-Row "python" "warn" "install" (T "new_window" "python") }
+        }
+    }
+
+    # ---- 3. Claude Code ---------------------------------------------------
+    $claude = @(Find-Command "claude") | Select-Object -First 1
+    $offPath = $null
+    foreach ($n in @("claude.exe", "claude.cmd")) {
+        if (-not $claude -and (Test-Path (Join-Path $LocalBin $n))) { $offPath = Join-Path $LocalBin $n }
+    }
+    $installer = "irm https://claude.ai/install.ps1 | iex"
+    if ($claude) {
+        Add-Row "claude" "ok" "skip" (Run-Quiet $claude @("--version")).out
+    } elseif ($offPath) {
+        Add-Row "claude" "ok" "skip" (T "off_path" $offPath)
+    } elseif ($DryRun) {
+        Add-Row "claude" "unverified" "install" (T "will_install" $installer)
+    } else {
+        Say (T "installing" "Claude Code")
+        try {
+            if ($Json) { Invoke-RestMethod https://claude.ai/install.ps1 | Invoke-Expression | Out-Null }
+            else { Invoke-RestMethod https://claude.ai/install.ps1 | Invoke-Expression | Out-Host }
+        } catch { }
+        Refresh-SessionPath
+        $claude = @(Find-Command "claude") | Select-Object -First 1
+        if (-not $claude -and (Test-Path (Join-Path $LocalBin "claude.exe"))) { $offPath = Join-Path $LocalBin "claude.exe" }
+        if ($claude -or $offPath) { Add-Row "claude" "ok" "install" (T "installed" "Claude Code") }
+        else { Add-Row "claude" "fail" "install" (T "install_failed" "Claude Code" "https://docs.claude.com/en/docs/claude-code/setup") }
+    }
+    if (-not $claude -and -not (On-Path $LocalBin) -and ($offPath -or $DryRun)) {
+        if ($DryRun) { Add-Row "path" "unverified" "append" (T "will_append" $LocalBin) }
+        else {
+            Set-UserPath -Front @() -Back @($LocalBin)
+            Add-Row "path" "ok" "append" (T "appended" $LocalBin)
+            $claude = @(Find-Command "claude") | Select-Object -First 1
+        }
+    }
+
+    # ---- 4. PYTHONUTF8 ----------------------------------------------------
+    if ($UserUtf8) {
+        Add-Row "pythonutf8" "ok" "skip" (T "utf8_kept" $UserUtf8)
+    } elseif ($DryRun) {
+        Add-Row "pythonutf8" "unverified" "set" (T "will_set_utf8")
+    } else {
+        [Environment]::SetEnvironmentVariable("PYTHONUTF8", "1", "User")
+        $env:PYTHONUTF8 = "1"
+        Add-Row "pythonutf8" "ok" "set" (T "set_utf8")
+    }
+
+    # ---- 5. the gatekit plugin --------------------------------------------
+    $installedJson = Join-Path $PluginsDir "installed_plugins.json"
+    $hasGatekit = (Test-Path $installedJson) -and ((Get-Content $installedJson -Raw) -match '"gatekit@gatekit"')
+    $knownJson = Join-Path $PluginsDir "known_marketplaces.json"
+    $hasMarket = (Test-Path $knownJson) -and ((Get-Content $knownJson -Raw) -match '"gatekit"')
+    $steps = if ($hasGatekit) {
+        @(@("plugin", "marketplace", "update", "gatekit"), @("plugin", "update", "gatekit@gatekit"))
+    } elseif ($hasMarket) {
+        @(@("plugin", "marketplace", "update", "gatekit"), @("plugin", "install", "gatekit@gatekit"))
+    } else {
+        @(@("plugin", "marketplace", "add", "gatebound/gatebound"), @("plugin", "install", "gatekit@gatekit"))
+    }
+    $action = if ($hasGatekit) { "update" } else { "install" }
+    $shown = ($steps | ForEach-Object { "claude " + ($_ -join " ") }) -join "; "
+    if ($DryRun) {
+        Add-Row "gatekit" "unverified" $action (T "will_run" $shown)
+    } else {
+        $exe = if ($claude) { $claude } else { $offPath }
+        if (-not $exe) {
+            Add-Row "gatekit" "fail" $action (T "no_claude")
+        } else {
+            Say (T "running" $shown)
+            $failed = $null
+            foreach ($s in $steps) {
+                $r = Run-Quiet $exe $s
+                if (-not $r.ok) { $failed = "claude " + ($s -join " "); break }
+            }
+            if ($failed) {
+                Add-Row "gatekit" "fail" $action (T "step_failed" $failed)
+            } else {
+                $ver = ""
+                try {
+                    $data = Get-Content $installedJson -Raw | ConvertFrom-Json
+                    $ver = @($data.plugins."gatekit@gatekit")[0].version
+                } catch { }
+                Add-Row "gatekit" "ok" $action (T "gatekit_ready" $ver)
+            }
+        }
+    }
+
+    # ---- 6. Node.js (only with -WithNode) ---------------------------------
+    if ($WithNode) {
+        $node = @(Find-Command "node") | Select-Object -First 1
+        if ($node) {
+            Add-Row "node" "ok" "skip" (Run-Quiet $node @("--version")).out
+        } elseif (Install-Package "node" "OpenJS.NodeJS.LTS" "https://nodejs.org/" "") {
+            $nodeDir = Join-Path ${env:ProgramFiles} "nodejs"
+            $npmDir = Join-Path $env:APPDATA "npm"
+            $back = @(@($nodeDir, $npmDir) | Where-Object { -not (On-Path $_) })
+            if ($back.Count -gt 0) { Set-UserPath -Front @() -Back $back; Add-Row "path" "ok" "append" (T "appended" ($back -join "; ")) }
+            $node = @(Find-Command "node") | Select-Object -First 1
+            if ($node) { Add-Row "node" "ok" "install" (T "installed" (Run-Quiet $node @("--version")).out) }
+            else { Add-Row "node" "warn" "install" (T "new_window" "node") }
+        }
+    }
+    }
+
+    # ---- report -----------------------------------------------------------
+    $verdicts = @($Rows | ForEach-Object { $_.verdict })
+    $overall = if ($verdicts -contains "fail") { "fail" }
+        elseif ($verdicts -contains "unverified") { "unverified" }
+        elseif ($verdicts -contains "warn") { "warn" }
+        else { "ok" }
+
+    if ($Json) {
+        $saved = [Console]::OutputEncoding
+        try {
+            [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
+            $result = [ordered]@{ lang = $Lang; dry_run = [bool]$DryRun; verdict = $overall; rows = @($Rows) }
+            [Console]::Out.WriteLine((ConvertTo-Json -InputObject $result -Depth 5))
+        } finally {
+            [Console]::OutputEncoding = $saved
+        }
+    } else {
+        Write-Host ""
+        Write-Host ("gatekit installer - " + $overall + $(if ($DryRun) { "  (" + (T "dry_run") + ")" } else { "" }))
+        foreach ($r in $Rows) {
+            $color = switch ($r.verdict) { "ok" { "Green" } "warn" { "Yellow" } "fail" { "Red" } default { "Gray" } }
+            Write-Host ("  {0,-11} {1,-11} {2}" -f $r.verdict, $r.item, $r.detail) -ForegroundColor $color
+        }
+        if ($overall -ne "fail" -and -not $DryRun) {
+            Write-Host ""
+            Write-Host (T "next")
+            Write-Host ("  1. " + (T "next_window"))
+            Write-Host ("  2. " + (T "next_folder"))
+            Write-Host ("  3. " + (T "next_claude"))
+            Write-Host ("  4. " + (T "next_doctor"))
+        }
+    }
+    if ($overall -eq "fail") { 1 } else { 0 }
+}
+
+$global:LASTEXITCODE = $code
+if ($PSCommandPath) { exit $code }

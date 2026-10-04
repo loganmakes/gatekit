@@ -88,6 +88,7 @@ gatekit/
 │   │   ├── language.md questioning.md verification.md assumptions.md conversation.md
 │   │   └── codex.md                     # differences under a host without slash commands (ADR-0019)
 │   └── tests/                           # unittest, run with: cd plugin && python3 -m unittest discover -s tests; fixtures/ holds spec sets and jobs
+├── install/install.ps1                   # one-line Windows installer: prerequisites, user PATH, the plugin (ADR-0033); ASCII only, runs before the plugin exists
 ├── tools/                               # CI gates and runners (stdlib)
 │   ├── gate_no_abs_paths.py             # no absolute personal paths in tracked text
 │   ├── gate_skill_size.py               # SKILL.md ≤ 40 lines, commands ≤ 160, no AskUserQuestion grant, shims hidden from the / menu

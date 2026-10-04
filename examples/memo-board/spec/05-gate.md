@@ -25,7 +25,7 @@ status: "확정"
 {"id": "unit-all",
  "tier": "turn",
  "argv": ["node", "--test", "tests/*.test.js"],
- "expect": {"exit": 0, "stdout_not_contains": ["# skipped 1", "# todo 1"]},
+ "expect": {"exit": 0, "stdout_contains": ["skipped 0", "todo 0"]},
  "timeout_s": 30}
 ```
 
@@ -62,6 +62,9 @@ status: "확정"
 - 테스트를 건너뛰거나(`skip`, `only`) 비활성화해서 통과시킨 경우
 - 기준 명령이 시간 초과된 경우 — `unverified`이며 통과로 반올림하지 않는다
 - 산출물 파일(`spec/design/build-*.png`)이 없는데 명령만 0으로 끝난 경우
+- `screenshots` 기준이 `unverified`(브라우저나 Playwright 없음)로 나왔는데 화면이 확인된 것처럼 보고한 경우 — 아직 아무도 화면을 보지 않았다는 뜻이다
+- 기능별 단위·E2E 테스트는 통과하지만 실제 화면에서 그 기능에 닿지 않는 경우 — `delete-ui.js`·`count-ui.js`가 `app.js`의 `install(board)`에 연결되지 않으면 `journey-…` 기준이 실패해야 한다
+- 의존성을 추가하거나 `playwright.config.ts`의 `webServer`·포트(4183)를 바꿔서 통과시킨 경우
 - 구현 없이 TODO·스텁·빈 함수만 남긴 경우
 - `05-gate.md`나 채점 파일(`e2e/journey.spec.ts`, `e2e/screenshots.spec.ts`, `playwright.config.ts`)을 고쳐서 기준을 약하게 만든 경우
 - 사람이 직접 실행해보지 않은 채 "동작한다"고 보고한 경우

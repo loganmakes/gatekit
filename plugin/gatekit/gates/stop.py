@@ -136,6 +136,11 @@ _MESSAGES = {
             "completion cannot be judged (contract_stale). "
             "Run `" + paths.cli_invocation() + " contract derive`, then finish the work."
         ),
+        "busy": (
+            "gatekit: another contract run (an evaluator's or a `contract run`) was still "
+            "in progress, so nothing was judged this time (contract_busy). This is not a "
+            "failure and not a pass: wait for that run to finish, then end the turn again."
+        ),
         "grading_hint": (
             "  A file that grades the work changed since approval: {paths}\n"
             "  If the change is intended, re-run /gatekit:gate to re-approve; "
@@ -219,6 +224,11 @@ _MESSAGES = {
             "gatekit: .gatekit/contract.json 이 spec/05-gate.md 와 더 이상 일치하지 "
             "않아 완료 여부를 판정할 수 없습니다 (contract_stale). "
             "`" + paths.cli_invocation() + " contract derive` 를 실행한 뒤 작업을 마치세요."
+        ),
+        "busy": (
+            "gatekit: 다른 계약 실행(평가자 또는 `contract run`)이 아직 진행 중이어서 "
+            "이번에는 아무것도 판정하지 않았습니다 (contract_busy). 실패도 통과도 아닙니다. "
+            "그 실행이 끝난 뒤 턴을 다시 마치세요."
         ),
         "grading_hint": (
             "  승인 이후 작업을 채점하는 파일이 바뀌었습니다: {paths}\n"
@@ -612,6 +622,8 @@ def handle(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
     if contract.STALE_REASON in result["reasons"]:
         return hookio.block_stop(_message(lang, "stale"))
+    if result.get("busy"):
+        return hookio.block_stop(_message(lang, "busy"))
     if contract.GRADING_UNAPPROVED_REASON in result["reasons"]:
         return hookio.block_stop(_message(
             lang, "unapproved", paths=", ".join(result.get("unapproved_grading") or [])))

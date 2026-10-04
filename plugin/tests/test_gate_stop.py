@@ -180,6 +180,27 @@ class TestAllowing(StopProject):
         self.assertIsNotNone(result)
         self.assertIn("contract_stale", result["reason"])
 
+    def test_a_busy_contract_blocks_and_says_another_run_holds_it(self) -> None:
+        # ADR-0031 decision 2: the Stop gate met the evaluator's run.
+        import json as _json
+        import time
+        from gatekit import contract
+        self.passing()
+        self.set_pipeline("verify")
+        lock = self.root / ".gatekit" / "runs" / "contract.lock"
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        lock.write_text(_json.dumps({"pid": os.getpid(), "started_at": time.time()}),
+                        encoding="utf-8")
+        saved = contract.LOCK_WAIT_S
+        contract.LOCK_WAIT_S = 0.2
+        try:
+            result = stop_gate.handle(self.event())
+        finally:
+            contract.LOCK_WAIT_S = saved
+        self.assertIsNotNone(result)
+        self.assertIn("contract_busy", result["reason"])
+        self.assertIsNone(contract.load_last(self.root))
+
 
 class TestLanguage(StopProject):
     def test_korean_reason(self) -> None:

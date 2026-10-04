@@ -886,6 +886,18 @@ def _base(path: str) -> str:
     return _lower_abs(path).rsplit("/", 1)[-1]
 
 
+def _under_state_eval(path: str) -> bool:
+    """True when *path*, as written and canonicalised, lies below a
+    ``<state dir>/eval/`` directory with no ``..`` segment (ADR-0031 decision
+    3). Wherever the command really runs, such a file is inside some
+    ``eval/``, which ADR-0027 B leaves writable."""
+    parts = [p.lower() for p in write._canonical(path).split("/") if p not in ("", ".")]
+    if ".." in parts:
+        return False
+    return any(part in paths.STATE_DIRNAMES and parts[index + 1] in write.USER_DIRS
+               for index, part in enumerate(parts[:-2]))
+
+
 def _state_path(root) -> str:
     """This project's state directory, realpath'd, lowered, canonical."""
     return _lower_abs(os.path.realpath(str(paths.state_dir(root))))
@@ -1136,8 +1148,11 @@ def _protected_hit(root, command: str, found: WriteTargets) -> Optional[str]:
                     r"\$\{?%s(?![A-Za-z0-9_])" % re.escape(var), raw):
                 return _STATE + "/"
     # A cwd we may have misread (a conditional `cd`, an unknown one): a
-    # target named like a file gatekit writes counts when .gatekit is in play.
+    # target named like a file gatekit writes counts when .gatekit is in play,
+    # unless it is written below an eval/ directory (ADR-0031 decision 3).
     for target in list(found.targets) + list(found.unresolved) + list(found.removed):
+        if _under_state_eval(target):
+            continue
         if _base(target) in write.PROTECTED_NAMES and _in_state_cwd(root, command, found):
             return _STATE + "/" + _base(target)
     if found.opaque:

@@ -74,7 +74,12 @@ def child_env() -> Dict[str, str]:
 KIND_WORDING = {
     "no_tests": "ran no tests",
     "all_skipped": "all tests skipped",
+    # ADR-0031: the runner could not start what it needs (a webServer on a
+    # port already in use). The code was not judged; a record holding one is
+    # not reused by the Stop gate.
+    "environment": "could not start the runner",
 }
+ENVIRONMENT_KIND = "environment"
 DEFAULT_KIND = "no_tests"
 
 
@@ -181,8 +186,12 @@ def describe_empty(sig_id: Any, exit_code: Any) -> str:
     ``ran no tests (<id>; exit N)``, or ``all tests skipped (<id>; exit N)``
     for a signature of kind ``all_skipped``. An id no longer in the file
     reads as ``ran no tests``."""
-    kind = next((sig[4] for sig in _signatures() if sig[0] == sig_id), DEFAULT_KIND)
-    return "%s (%s; exit %s)" % (KIND_WORDING[kind], sig_id, exit_code)
+    return "%s (%s; exit %s)" % (KIND_WORDING[signature_kind(sig_id)], sig_id, exit_code)
+
+
+def signature_kind(sig_id: Any) -> str:
+    """The ``kind`` of signature *sig_id*; ``no_tests`` for an unknown id."""
+    return next((sig[4] for sig in _signatures() if sig[0] == sig_id), DEFAULT_KIND)
 
 
 #: Lines that name a path the command could not find. Each has one group, the

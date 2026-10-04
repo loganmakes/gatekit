@@ -441,6 +441,16 @@ class TestRunGates(JobTestCase):
                 {"name": "path", "argv": [sys.executable, "-c", code]}]})
         self.assertIn("/data/홍길동/x", result["gates"][0]["stdout_tail"])
 
+    def test_a_gate_whose_runner_could_not_start_is_unverified(self) -> None:
+        # ADR-0031 decision 1: the task gate path reads the same signature.
+        out = ("[WebServer] Error: listen EADDRINUSE: address already in use :::4183\n\n"
+               "Error: Process from config.webServer was not able to start. Exit code: 1\n")
+        code = "import sys; sys.stderr.write(%r); sys.exit(1)" % out
+        gate = jobs.run_gates(self.root, {"gates": [
+            {"name": "e2e", "argv": [sys.executable, "-c", code]}]})["gates"][0]
+        self.assertEqual(gate["verdict"], verdict.UNVERIFIED)
+        self.assertIn("could not start the runner", gate["detail"])
+
     def test_a_python_gate_prints_utf8(self) -> None:
         # Same as a contract criterion: a gate's own Python must not die
         # printing a path its locale cannot encode; a user's setting is kept.

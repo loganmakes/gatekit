@@ -148,6 +148,17 @@ NO_CRITERIA_IN_TIER_REASON = "no_criteria_in_tier"
 #: start budget left others unjudged (ADR-0024 review): not judged is not ok.
 BUDGET_DEFERRED_REASON = "deferred_by_stop_budget"
 
+#: ADR-0031 decision 2: one contract run at a time. ``execute`` holds
+#: ``.gatekit/runs/contract.lock`` while it runs; a second run waits up to
+#: LOCK_WAIT_S, then judges nothing and says why. A lock older than
+#: LOCK_STALE_S (the run-wide ceiling plus a margin), or whose process is
+#: gone, is stale and taken over.
+CONTRACT_BUSY_REASON = "contract_busy"
+LOCK_NAME = "contract.lock"
+LOCK_WAIT_S = 30.0
+LOCK_POLL_S = 0.25
+LOCK_STALE_S = MAX_BUDGET_S + 60.0
+
 
 def validate_tier(tier: Any, ident: str = "?") -> List[str]:
     """Problems with a criterion's ``tier``; empty when valid."""
@@ -649,6 +660,8 @@ def _run_one_raw(
     if completed.returncode != expected_exit:
         if no_tests and expected_exit == 0:
             result["detail"] = no_tests
+            if runcheck.signature_kind(empty) == runcheck.ENVIRONMENT_KIND:
+                result["environment"] = True  # ADR-0031: never reused
             return result  # stays unverified
         result["verdict"] = verdict.FAIL
         return result
@@ -677,7 +690,95 @@ def _run_one_raw(
     return result
 
 
-def execute(
+def _lock_path(root: pathlib.Path) -> pathlib.Path:
+    return paths.runs_dir(root) / LOCK_NAME
+
+
+def _lock_holder_alive(lock: pathlib.Path) -> bool:
+    """Whether the run that wrote *lock* may still be running. An unreadable
+    or half-written lock counts as held while it is younger than a few
+    seconds (its writer may be between create and write)."""
+    try:
+        info = json.loads(lock.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        try:
+            return time.time() - lock.stat().st_mtime < 5.0
+        except OSError:
+            return False
+    pid, started = (info.get("pid"), info.get("started_at")) if isinstance(info, dict) else (None, None)
+    if not isinstance(pid, int) or isinstance(pid, bool) or not isinstance(started, (int, float)):
+        return False
+    if time.time() - float(started) > LOCK_STALE_S:
+        return False
+    if pid == os.getpid():
+        return True
+    from . import jobs  # lazy: jobs imports far more than contract needs
+    return jobs._pid_alive(pid)  # tasklist on Windows; never os.kill there
+
+
+def _acquire_lock(root: pathlib.Path) -> Optional[bool]:
+    """Take the contract lock: True when held, False when another run kept it
+    past LOCK_WAIT_S, None when no lock can be made here at all (then the run
+    goes ahead unlocked, as before ADR-0031 — a hook must not stall)."""
+    lock = _lock_path(root)
+    try:
+        paths.ensure_dir(lock.parent)
+    except OSError:
+        return None
+    deadline = time.monotonic() + max(0.0, float(LOCK_WAIT_S))
+    while True:
+        try:
+            fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            if not _lock_holder_alive(lock):
+                try:
+                    os.unlink(str(lock))
+                except OSError:
+                    pass
+                continue
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(LOCK_POLL_S)
+            continue
+        except OSError:
+            return None
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump({"pid": os.getpid(), "started_at": time.time()}, handle)
+        return True
+
+
+def _release_lock(root: pathlib.Path) -> None:
+    """Remove the lock if this process holds it; never another run's."""
+    lock = _lock_path(root)
+    try:
+        info = json.loads(lock.read_text(encoding="utf-8"))
+        if isinstance(info, dict) and info.get("pid") == os.getpid():
+            os.unlink(str(lock))
+    except (OSError, ValueError):
+        pass
+
+
+def execute(root: pathlib.Path, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+    """:func:`_execute` under the contract lock (ADR-0031 decision 2). When
+    another run holds it past LOCK_WAIT_S the result is ``unverified`` with
+    :data:`CONTRACT_BUSY_REASON`, judges nothing, and is never recorded."""
+    held = _acquire_lock(root)
+    if held is False:
+        return {
+            "verdict": verdict.UNVERIFIED,
+            "criteria": [],
+            "reasons": ["%s: another contract run held %s for %ss"
+                        % (CONTRACT_BUSY_REASON, LOCK_NAME, int(LOCK_WAIT_S))],
+            "busy": True,
+        }
+    try:
+        return _execute(root, *args, **kwargs)
+    finally:
+        if held:
+            _release_lock(root)
+
+
+def _execute(
     root: pathlib.Path,
     total_budget_s: Optional[float] = None,
     cap_s: Optional[float] = None,
@@ -932,7 +1033,11 @@ def load_last(root: pathlib.Path) -> Optional[Dict[str, Any]]:
 
 
 def save_last(root: pathlib.Path, result: Dict[str, Any]) -> None:
-    """Record *result* with the contract hash and the tree as it is now."""
+    """Record *result* with the contract hash and the tree as it is now. A
+    busy result (ADR-0031) judged nothing and is not recorded: it must not
+    replace the result of the run that held the lock."""
+    if result.get("busy"):
+        return
     data = load(root) or {}
     record = {
         "source_sha256": data.get("source_sha256"),
@@ -983,6 +1088,11 @@ def covers(root: pathlib.Path, record: Optional[Dict[str, Any]],
     if not record or not isinstance(record.get("scope"), list):
         return False
     if budget_deferred_ids(record.get("result") or {}):
+        return False
+    # ADR-0031: a runner that could not start (a port another run held)
+    # judged nothing about the code; run again rather than repeat it.
+    if any(isinstance(c, dict) and c.get("environment")
+           for c in (record.get("result") or {}).get("criteria") or []):
         return False
     return sorted(str(i) for i in record["scope"]) == tier_scope(root, tiers)
 

@@ -4,6 +4,86 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.16.10 — 2026-10-04
+
+Findings from running gatekit where a user would: on a Korean Windows host
+(cp949 console, a Hangul user path, Python 3.9) and in a live Claude Code
+session (ADR-0031, ADR-0032). On the Windows host the suite went from 15
+failures and 35 errors to none.
+
+### Fixed
+
+- **Criterion output is never lost on a non-UTF-8 console.** The contract
+  runner, task gates and the worker probe read command output as UTF-8, then
+  the locale codec, then UTF-8 with replacement (`runcheck.decode_output`).
+  Read with the locale codec, Node's or Playwright's `✔` broke the reader
+  thread, the stream came back empty, and `stdout_not_contains: ["skipped"]`
+  passed against nothing.
+- Criteria and task gates run with `PYTHONIOENCODING=utf-8` unless the user
+  set it (`runcheck.child_env`), so a child Python printing a path its locale
+  cannot encode does not die mid-print.
+- The Codex trust fallback parser (Python 3.9/3.10) decodes every TOML
+  basic-string escape, so a project under a non-ASCII home matches its own
+  trust entry.
+- Atomic state writes retry while a Windows reader holds the file
+  (`config.replace_file`, up to 2 s; never on POSIX).
+- The token gate prints UTF-8 on any console; it and `cli.main` share
+  `hookio.utf8_stdio`.
+- **A runner that could not start is `unverified` and is not reused**
+  (ADR-0031). Two contract runs raced for Playwright's webServer port; the
+  loser was recorded `fail`, and the next Stop reused that record while the
+  tree was unchanged. A new signature kind, `environment`
+  (`playwright-webserver`), reads `unverified`, and such a record is never
+  reused. A bare `EADDRINUSE` is deliberately not a signature.
+- **One contract run at a time** (ADR-0031). A lock under the state
+  directory's `runs/` wraps `contract.execute`; a second run waits up to
+  30 s, then returns `contract_busy` (`unverified`, never recorded), and the
+  Stop gate says another run was in progress. A stale lock (dead pid, too
+  old) is taken over; the pid check never calls `os.kill` on Windows.
+- Files under the state directory's `eval/` are not protected names, so the
+  evaluator can write `.gatekit/eval/contract.json` (ADR-0031).
+- **A harness message carries no language signal.** A background-task
+  notice or a subagent hand-back reaches the prompt hook wrapped in English
+  and switched a Korean session to `output_lang=en`.
+- **A prompt ending in a Korean predicate keeps the session Korean.**
+  `응 spec validate 돌려줘` and `npm install 해줘` switched a Korean session to
+  English. `lang.detect_prompt` adds one rule to `detect`: the last prose
+  token is all Hangul and ends a Korean predicate (`PREDICATE_ENDINGS`).
+  `Rename the title to 메모` still reads `en`. Only the prompt gate uses it;
+  spec-language detection is unchanged.
+- **doctor believes hooks it has seen run** from its own plugin root (ledger
+  `hook_root`), so a `--plugin-dir` session no longer reads "hooks will not
+  fire" (ADR-0032).
+
+### Added
+
+- **A gatekit skill can arm the Stop gate, never disarm it** (ADR-0032). A
+  `PreToolUse` hook on the Skill tool: the `build` and `verify` skills set the
+  pipeline and rearm the Stop gate like the typed command; any other skill
+  leaves the ledger alone, so a model cannot end a build's judging through a
+  skill.
+- On Windows, a criterion's `could not execute: node` says when the program
+  is on the registry `Path` but not this session's `PATH`: it was installed
+  after the session started, so start Claude Code again from a new terminal.
+  The verdict is unchanged.
+- CI: a `windows-latest` job on Python 3.9 with a temp directory named
+  `임시 폴더`, and a `macos-latest` job.
+
+### Changed
+
+- Printed commands on Windows name the interpreter that runs, with forward
+  slashes, so they run as is in Git Bash, PowerShell and cmd.
+
+### Docs
+
+- README, README.ko and manual 00 state the current version again; 0.16.9
+  left them at 0.16.8.
+
+### Known limits
+
+- An English request that ends in the Korean text it is about
+  (`please translate 안녕하세요`) reads `ko`.
+
 ## 0.16.9 — 2026-10-04
 
 Two Windows findings from running a fresh clone where a user would: on the

@@ -24,6 +24,8 @@ import pathlib
 import re
 import sys
 
+import console
+
 LAUNCHER_RE = re.compile(r'python3 "\$\{CLAUDE_PLUGIN_ROOT\}/bin/gatekit\.py" ([a-z-]+)')
 BAD_FORMS = [
     (re.compile(r"python3 -m gatekit"), "use the launcher: python3 \"${CLAUDE_PLUGIN_ROOT}/bin/gatekit.py\" <sub>"),
@@ -62,6 +64,7 @@ def scan(root: pathlib.Path) -> list:
 
 
 def main(argv=None) -> int:
+    console.utf8_stdio()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", default=str(pathlib.Path(__file__).resolve().parent.parent))
     parser.add_argument("--json", action="store_true")

@@ -20,6 +20,8 @@ import pathlib
 import re
 import sys
 
+import console
+
 #: Foreign project, marketplace and plugin names. Matched case-insensitively
 #: on word-ish boundaries so ordinary Korean/English prose is unaffected.
 FORBIDDEN = [
@@ -66,6 +68,7 @@ def scan(root: pathlib.Path) -> list:
 
 
 def main(argv=None) -> int:
+    console.utf8_stdio()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", default=str(pathlib.Path(__file__).resolve().parent.parent))
     parser.add_argument("--json", action="store_true")

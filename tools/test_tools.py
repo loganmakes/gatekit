@@ -17,6 +17,7 @@ Or via the aggregate runner:
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -27,11 +28,16 @@ TOOLS_DIR = pathlib.Path(__file__).resolve().parent
 REPO_ROOT = TOOLS_DIR.parent
 
 
-def run_gate(script: str, root: pathlib.Path, extra_args: list[str] | None = None) -> subprocess.CompletedProcess:
-    cmd = [sys.executable, str(TOOLS_DIR / script), "--root", str(root), "--json"]
+def run_gate(script: str, root: pathlib.Path, extra_args: list[str] | None = None,
+             json_output: bool = True, env: dict | None = None) -> subprocess.CompletedProcess:
+    cmd = [sys.executable, str(TOOLS_DIR / script), "--root", str(root)]
+    if json_output:
+        cmd.append("--json")
     if extra_args:
         cmd.extend(extra_args)
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    # A gate prints UTF-8 on any console; read it as UTF-8, not the locale.
+    return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                          errors="replace", timeout=30, env=env)
 
 
 def write(path: pathlib.Path, content: str) -> None:
@@ -603,6 +609,52 @@ class TestCleanRoom(unittest.TestCase):
                   "# note\n\nadded a note, ddl handling, gaseous mixtures, nopalito\n")
             proc = run_gate("gate_clean_room.py", root)
             self.assertEqual(proc.returncode, 0, proc.stdout)
+
+
+class TestConsoleEncoding(unittest.TestCase):
+    """A gate's findings print on any console.
+
+    Observed on a Korean Windows host: gate_clean_room's message carries an
+    em dash, cp949 cannot encode it, and the gate died with UnicodeEncodeError
+    mid-print — exit 1 as if it had judged, with the finding lost. Forcing the
+    child's stdio to ascii stands in for cp949 or cp1252 on any runner, and
+    is stricter: it rejects Hangul paths too.
+    """
+
+    NARROW = {**os.environ, "PYTHONIOENCODING": "ascii"}
+
+    def _foreign_name(self, root: pathlib.Path) -> None:
+        minimal_clean_repo(root)
+        write(root / "docs" / "매뉴얼" / "01-intro.md", "# intro\n\ngptaku 에서 영감을 받았다\n")
+
+    def test_a_json_finding_prints_on_a_narrow_console(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            self._foreign_name(root)
+            proc = run_gate("gate_clean_room.py", root, env=self.NARROW)
+            self.assertNotIn("Traceback", proc.stderr)
+            self.assertEqual(proc.returncode, 1)
+            finding = json.loads(proc.stdout)["findings"][0]
+            self.assertEqual(finding["path"], "docs/매뉴얼/01-intro.md")
+            self.assertIn("— describe it", finding["message"])
+
+    def test_a_text_finding_prints_on_a_narrow_console(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            self._foreign_name(root)
+            proc = run_gate("gate_clean_room.py", root, json_output=False, env=self.NARROW)
+            self.assertNotIn("Traceback", proc.stderr)
+            self.assertEqual(proc.returncode, 1)
+            self.assertIn("docs/매뉴얼/01-intro.md:3: foreign project name 'gptaku' —", proc.stdout)
+
+    def test_every_gate_sets_a_utf8_console(self) -> None:
+        # Every gate prints a finding's path and message, either of which can
+        # be non-ASCII; none may rely on the console's code page.
+        gates = sorted(TOOLS_DIR.glob("gate_*.py"))
+        self.assertTrue(gates)
+        missing = [g.name for g in gates
+                   if "console.utf8_stdio()" not in g.read_text(encoding="utf-8")]
+        self.assertEqual(missing, [], "gates that do not call console.utf8_stdio()")
 
 
 class TestManualBundle(unittest.TestCase):

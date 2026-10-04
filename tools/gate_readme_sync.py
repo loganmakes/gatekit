@@ -24,6 +24,8 @@ import pathlib
 import re
 import sys
 
+import console
+
 COMMAND_REF_RE = re.compile(r"/gatekit:([A-Za-z0-9_-]+)")
 
 
@@ -100,6 +102,7 @@ def scan(root: pathlib.Path) -> list[dict]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    console.utf8_stdio()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=None)
     parser.add_argument("--json", action="store_true")

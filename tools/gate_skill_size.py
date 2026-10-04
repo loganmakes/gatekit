@@ -39,6 +39,8 @@ import pathlib
 import re
 import sys
 
+import console
+
 SKILL_MAX_LINES = 40
 COMMAND_MAX_LINES = 160
 
@@ -181,6 +183,7 @@ def scan(root: pathlib.Path) -> list[dict]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    console.utf8_stdio()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=None)
     parser.add_argument("--json", action="store_true")

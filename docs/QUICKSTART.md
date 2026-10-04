@@ -7,18 +7,25 @@
 /plugin install gatekit@gatekit
 ```
 
-Restart Claude Code so the hooks in `plugin/hooks/hooks.json` load.
+Restart Claude Code so the hooks in `plugin/hooks/hooks.json` load. Codex
+installs the same plugin from the same marketplace; see "Codex (app and CLI)"
+in `README.md` for its commands and the one-time hook trust step.
 
 ## Start from an idea
 
 ```
+/gatekit:discover
 /gatekit:interview
 ```
 
-Answer the structured questions. This writes `spec/01-prd.md` (including
-an Assumption Ledger — anything decided on your behalf, listed explicitly)
-and `spec/03-architecture.md`. Review both; they're plain Markdown meant
-to be read and edited by hand.
+If you don't yet know what to build, start with `/gatekit:discover`: a
+free-ranging conversation that surfaces problems worth solving and writes
+`spec/00-discovery.md`. If you already know, go straight to
+`/gatekit:interview`, which goes deep on pages, behavior and data and, for a
+known product category, proposes standard features for you to prune. It
+writes `spec/01-prd.md` (including an Assumption Ledger — anything decided on
+your behalf, listed explicitly) and `spec/03-architecture.md`. Review both;
+they're plain Markdown meant to be read and edited by hand.
 
 If you're starting from a visual mockup or existing screens instead, run
 `/gatekit:mockup` in place of (or in addition to) the interview. It
@@ -61,11 +68,13 @@ automatically — nothing has to be remembered.
 /gatekit:build
 ```
 
-Tasks run through the default worker (the Claude CLI) inside their
-declared `write_scope`; the `PreToolUse` write gate enforces that scope
-for the duration of each task, independent of what the worker itself
-believes it's allowed to touch. A task that exits 0 but fails its own
-gate is recorded as failed, not passed.
+By default this session implements each task itself, and `jobs complete`
+runs that task's gates. With `--backend <name>` or `build.execution: worker`,
+workers run the tasks instead, each inside its declared `write_scope`; the
+`PreToolUse` write gate enforces that scope for the duration of the task,
+independent of what the worker itself believes it's allowed to touch. Either
+way the gates decide: a task that exits 0 but fails its own gate is recorded
+as failed, not passed.
 
 ## Verify
 
@@ -73,10 +82,11 @@ gate is recorded as failed, not passed.
 /gatekit:verify
 ```
 
-Runs the completion contract derived from `spec/05-gate.md` end to end and
-reports the aggregate verdict — `ok`, `warn`, `fail`, or `unverified`.
-`unverified` means a criterion could not be checked at all; it is never
-rounded to a pass.
+An independent, read-only evaluator runs the criteria and the E2E steps in
+`spec/05-gate.md`; then this session re-runs the completion contract and
+reports one verdict per criterion. The contract's aggregate is `ok`, `fail`
+or `unverified`; an E2E step can also come back `warn`. `unverified` means a
+criterion could not be checked at all; it is never rounded to a pass.
 
 ## Check the install itself
 

@@ -109,6 +109,18 @@ class TestLanguageDetection(PromptProject):
             prompt_gate.handle(self.event(reply))
             self.assertEqual(self.led().data["output_lang"], "ko", reply)
 
+    def test_a_korean_request_naming_a_command_keeps_ko(self) -> None:
+        # Observed on 0.16.8: these flipped a Korean session to English.
+        prompt_gate.handle(self.event("로그인 화면을 만들어줘"))
+        for reply in ("응 spec validate 돌려줘", "npm install 해줘"):
+            prompt_gate.handle(self.event(reply))
+            self.assertEqual(self.led().data["output_lang"], "ko", reply)
+
+    def test_an_english_sentence_quoting_korean_still_switches(self) -> None:
+        prompt_gate.handle(self.event("로그인 화면을 만들어줘"))
+        prompt_gate.handle(self.event("Rename the board title to 메모"))
+        self.assertEqual(self.led().data["output_lang"], "en")
+
     #: What the host delivers as a "prompt" that the user never typed: a
     #: background task's completion notice and a subagent's hand-back, both
     #: wrapped in English. Observed on the first host run: each flipped a

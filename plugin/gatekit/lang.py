@@ -11,6 +11,10 @@ are paths or code identifiers (they contain ``/``, ``.``, ``_``, ``\\`` or a
 backtick inside them), so ``src/auth/token.ts 를 고쳐줘`` is Korean even though
 most of its characters are ASCII. A session observed in Codex switched to
 English on ``src/hello.ts 만들어줘`` before this rule existed.
+
+A prompt also reads Korean when it ends in a Korean predicate
+(:func:`detect_prompt`): ``npm install 해줘`` names a command in plain English
+words, which the identifier rule cannot drop.
 """
 from __future__ import annotations
 
@@ -112,6 +116,42 @@ def detect(text: Optional[str]) -> str:
     if letters == 0:
         return EN
     return KO if (hangul / letters) >= HANGUL_THRESHOLD else EN
+
+
+#: Final syllables of Korean sentence and request endings: 해줘, 돌려줘,
+#: 부탁해요, 합니다, 하자, 할까, 하죠, 해봐 ... Korean is verb-final, so the
+#: predicate that makes the request closes the sentence.
+PREDICATE_ENDINGS = ("줘", "요", "다", "해", "자", "까", "죠", "래", "라", "냐", "니", "지", "게", "봐")
+
+
+def ends_in_korean_predicate(text: Optional[str]) -> bool:
+    """Whether the last prose token is all Hangul and ends a Korean predicate.
+
+    ``npm install 해줘`` does; ``Rename the title to 메모`` does not — a Korean
+    word at the end of an English sentence is quoted, not the request.
+    """
+    tokens = [t.strip(_EDGE_PUNCT + ".") for t in prose_only(text or "").split()]
+    tokens = [t for t in tokens if t]
+    if not tokens:
+        return False
+    last = tokens[-1]
+    return all(_is_hangul(ch) for ch in last) and last.endswith(PREDICATE_ENDINGS)
+
+
+def detect_prompt(text: Optional[str]) -> str:
+    """:func:`detect` for a prompt the user typed: also Korean when it ends in
+    a Korean predicate.
+
+    ``응 spec validate 돌려줘`` and ``npm install 해줘`` flipped a Korean session
+    to English on 0.16.8: plain English command words are not identifiers, and
+    one Hangul syllable weighs a letter against a whole English word. Only the
+    prompt gate uses this; spec text (``from_spec``, ``lang <text>``) keeps
+    the letter rule ADR-0026 was decided on.
+    """
+    verdict = detect(text)
+    if verdict == EN and ends_in_korean_predicate(text):
+        return KO
+    return verdict
 
 
 #: Spec files whose language stands in for the user's while no prompt in the

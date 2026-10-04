@@ -761,7 +761,12 @@ under `.gatekit/` but `config.json` and `eval/**` (ADR-0027, §3).
 identifiers (containing `/`, `.`, `_`, `\` or a backtick inside them) — a
 named file is not the user's language; `ko` if Hangul ≥ 30% of the remaining
 letters, else `en`. Empty text, or only identifiers → `en`.
-The prompt gate stores the result per session; commands read it from the ledger
+`detect_prompt(text)` is `detect` plus one rule for a prompt the user typed:
+`ko` also when its last prose token is all Hangul and ends a Korean predicate
+(final syllable in `lang.PREDICATE_ENDINGS`: `줘 요 다 해 자 까 죠 래 라 냐 니 지 게 봐`),
+so `npm install 해줘` is `ko` while `Rename the title to 메모` stays `en`.
+Spec text (`from_spec`, `lang <text>`) keeps `detect`.
+The prompt gate stores the `detect_prompt` result per session; commands read it from the ledger
 and must emit **every** user-facing string (chat, AskUserQuestion labels, files
 written under `spec/`) in that language. Identifiers (file names, JSON keys,
 CLI flags, fence names) are never translated. Templates and heading maps exist

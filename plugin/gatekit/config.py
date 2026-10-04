@@ -16,9 +16,17 @@ import json
 import os
 import pathlib
 import tempfile
+import time
 from typing import Any, Dict
 
 from . import paths
+
+#: Windows refuses ``os.replace`` onto a file another process holds open, with
+#: PermissionError (WinError 5); a worker or hook reading the same state file
+#: makes that transient, so atomic writes retry it — up to 2 s, the same budget
+#: the job.json merge used. On POSIX a PermissionError is a real one: no retry.
+_REPLACE_ATTEMPTS = 40 if os.name == "nt" else 1
+_REPLACE_DELAY_S = 0.05
 
 DEFAULTS: Dict[str, Any] = {
     "version": 1,
@@ -157,6 +165,18 @@ def write_json_atomic(target: pathlib.Path, payload: Any) -> None:
     write_text_atomic(target, text + "\n")
 
 
+def replace_file(src: str, dst: str) -> None:
+    """``os.replace`` that waits out a reader holding *dst* open on Windows."""
+    for attempt in range(_REPLACE_ATTEMPTS):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if attempt == _REPLACE_ATTEMPTS - 1:
+                raise
+            time.sleep(_REPLACE_DELAY_S)
+
+
 def write_text_atomic(target: pathlib.Path, text: str) -> None:
     """Write *text* to *target* via a temp file plus ``os.replace``."""
     target = pathlib.Path(target)
@@ -169,7 +189,7 @@ def write_text_atomic(target: pathlib.Path, text: str) -> None:
             stream.write(text)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(tmp_name, str(target))
+        replace_file(tmp_name, str(target))
     except BaseException:
         try:
             os.unlink(tmp_name)

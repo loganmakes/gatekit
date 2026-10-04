@@ -22,6 +22,7 @@ import fnmatch
 import functools
 import hashlib
 import json
+import locale
 import ntpath
 import os
 import posixpath
@@ -31,6 +32,42 @@ from typing import Any, Dict, Iterable, List, Optional
 from gatekit import paths
 
 SIGNATURES_FILE = "no-tests-signatures.json"
+
+
+def decode_output(raw: Optional[bytes]) -> str:
+    """A command's captured output as text, never lost.
+
+    UTF-8 first (Node and Playwright print `✔`/`—` in UTF-8 whatever the
+    console says), then the locale codec (a child Python or a Windows tool
+    printing a cp949 path), then UTF-8 with replacement. Decoding with one
+    codec alone either broke the reader thread under cp949 and returned an
+    empty stream, so a `stdout_not_contains` check passed against nothing, or
+    mangled the path the not-yet-runnable classifier matches on.
+    """
+    if not raw:
+        return ""
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        pass
+    try:
+        return raw.decode(locale.getpreferredencoding(False))
+    except (UnicodeDecodeError, LookupError):
+        return raw.decode("utf-8", "replace")
+
+
+def child_env() -> Dict[str, str]:
+    """The environment a criterion or task gate runs in: this process's, with
+    ``PYTHONIOENCODING=utf-8`` unless the user set it.
+
+    A child Python prints in its locale codec; a path or test name that codec
+    cannot encode (Korean on a cp1252 Windows) killed it mid-print and left
+    nothing to judge. Only the standard streams change — ``open()`` in the
+    user's code keeps its default — and :func:`decode_output` reads UTF-8 first.
+    """
+    env = dict(os.environ)
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    return env
 
 #: A signature's ``kind`` (ADR-0022 Amendment A) and the detail it reads as.
 #: An absent kind is ``no_tests``; any other value makes the entry malformed.

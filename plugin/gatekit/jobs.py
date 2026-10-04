@@ -120,7 +120,9 @@ def new_job_id() -> str:
 
 
 def write_json(path, data) -> None:
-    """Atomic JSON write: temp file in the same directory, then os.replace."""
+    """Atomic JSON write: temp file in the same directory, then
+    `config.replace_file` (os.replace, retried while a Windows reader holds
+    the target open)."""
     path = str(path)
     directory = os.path.dirname(path) or "."
     os.makedirs(directory, exist_ok=True)
@@ -131,7 +133,7 @@ def write_json(path, data) -> None:
             handle.write("\n")
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(tmp, path)
+        config.replace_file(tmp, path)
     except BaseException:
         try:
             os.unlink(tmp)
@@ -637,6 +639,7 @@ def run_gates(root, task: dict) -> dict:
             proc = subprocess.run(
                 paths.expand_argv(argv),
                 cwd=str(root),
+                env=runcheck.child_env(),
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -672,8 +675,8 @@ def run_gates(root, task: dict) -> dict:
                 }
             )
             continue
-        out = (proc.stdout or b"").decode("utf-8", "replace")
-        err = (proc.stderr or b"").decode("utf-8", "replace")
+        out = runcheck.decode_output(proc.stdout)
+        err = runcheck.decode_output(proc.stderr)
         if proc.returncode == 0:
             gate_verdict, detail = verdict.OK, "exit 0"
         elif proc.returncode == GATE_UNVERIFIED_EXIT:
@@ -1991,14 +1994,7 @@ def _merge_job_json(jdir, fields: dict, fallback: Optional[dict] = None) -> dict
         if not isinstance(job, dict):
             job = dict(fallback or {})
         job.update(fields)
-        for attempt in range(40):
-            try:
-                write_json(path, job)
-                break
-            except PermissionError:  # the other side is mid-read (Windows)
-                if attempt == 39:
-                    raise
-                time.sleep(0.05)
+        write_json(path, job)  # retries a Windows reader's lock (config.replace_file)
     return job
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -226,7 +227,7 @@ def run_gate_subprocess(event: dict, env_extra: "dict | None" = None, raw: "str 
         [sys.executable, str(GATE_SCRIPT)],
         input=raw if raw is not None else json.dumps(event),
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
         env=env,
         timeout=30,
     )
@@ -294,15 +295,20 @@ class TestSpecBeforeCode(BashGateProject):
 
     def test_write_outside_project_root_allowed_before_approval(self) -> None:
         # ADR-0018 decision 3: another folder is not this project's code.
+        # The temp path is quoted: a temp directory with a space in its name
+        # ("임시 폴더" on the Windows CI job) otherwise splits into two words,
+        # the second a relative path inside the project, and is rightly denied.
         with tempfile.TemporaryDirectory() as other:
-            target = os.path.realpath(other)
+            target = shlex.quote(os.path.realpath(other))
             self.assertIsNone(bash_gate.handle(self.event(f"mkdir -p {target}/app && cp spec/01-prd.md {target}/app/")))
             self.assertIsNone(bash_gate.handle(self.event(f"cat > {target}/scratch.js")))
 
     def test_mixed_inside_and_outside_still_judges_inside(self) -> None:
         with tempfile.TemporaryDirectory() as other:
-            target = os.path.realpath(other)
-            self.assertIsNotNone(bash_gate.handle(self.event(f"cat > {target}/a.js && cat > src/x.ts")))
+            target = shlex.quote(os.path.realpath(other))
+            result = bash_gate.handle(self.event(f"cat > {target}/a.js && cat > src/x.ts"))
+            self.assertIsNotNone(result)
+            self.assertIn("src/x.ts", self.reason(result))
 
     def test_opaque_write_denied_before_approval(self) -> None:
         for cmd in ("git apply p.diff", "python3 -c \"open('x','w')\"", 'eval "$c"'):

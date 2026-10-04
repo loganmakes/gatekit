@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from unittest import mock
 
 # Make the `gatekit` package importable however this suite is discovered:
 # `discover -s plugin/tests` loads tests as top-level modules and puts only
@@ -16,6 +17,7 @@ from contextlib import redirect_stderr, redirect_stdout
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from gatekit import approval, contract
+from tests._stubs import symlink_or_skip  # noqa: E402
 
 PY = sys.executable
 
@@ -160,7 +162,7 @@ class TestExecute(TempProject):
             "timeout_s": 20,
         })
         contract.derive(self.root)
-        stored = json.loads((self.root / ".gatekit" / "contract.json").read_text())
+        stored = json.loads((self.root / ".gatekit" / "contract.json").read_text(encoding="utf-8"))
         self.assertIn("${CLAUDE_PLUGIN_ROOT}", stored["criteria"][0]["argv"][1])
         result = contract.execute(self.root)
         self.assertEqual(result["criteria"][0]["verdict"], "ok", result["criteria"][0])
@@ -258,7 +260,7 @@ class TestExecute(TempProject):
             secret = outside / "secret.txt"
             secret.write_text("top secret\n", encoding="utf-8")
             link = self.root / "escape.txt"
-            os.symlink(str(secret), str(link))
+            symlink_or_skip(self, secret, link)
             self.write_gate(
                 {
                     "id": "sym",
@@ -279,7 +281,7 @@ class TestExecute(TempProject):
     def test_symlink_staying_inside_root_is_allowed(self) -> None:
         real = self.root / "real.txt"
         real.write_text("fine\n", encoding="utf-8")
-        os.symlink(str(real), str(self.root / "alias.txt"))
+        symlink_or_skip(self, real, self.root / "alias.txt")
         self.write_gate(
             {"id": "ok-sym", "argv": [PY, "-c", "pass"], "artifacts": ["alias.txt"], "timeout_s": 20}
         )
@@ -435,7 +437,7 @@ class TestDeclaredTotalBudget(unittest.TestCase):
         (self.root / "spec" / "05-gate.md").write_text(
             "# gate\n\n## Not counted as done\n\n- nothing\n\n"
             '```gatekit-criterion\n'
-            '{"id": "quick", "argv": ["python3", "-c", "pass"], "timeout_s": 5}\n'
+            + json.dumps({"id": "quick", "argv": [PY, "-c", "pass"], "timeout_s": 5}) + "\n"
             "```\n" + extra,
             encoding="utf-8",
         )
@@ -528,6 +530,53 @@ class TestExpectOutput(TempProject):
         self.write_gate({"id": "c", "argv": ["/nonexistent-binary-xyz"], "expect": {"stdout_contains": "OK"}})
         contract.derive(self.root)
         self.assertEqual(contract.execute(self.root)["criteria"][0]["verdict"], "unverified")
+
+
+class TestOutputDecoding(TempProject):
+    """A criterion's output is read as UTF-8 whatever the locale says. Read
+    with the locale codec (cp949 on a Korean Windows), Node's and Playwright's
+    `✔`/`—` broke the reader thread and the stream came back empty, so a
+    `stdout_not_contains` check passed against nothing."""
+
+    def run_bytes(self, expect: dict, payload: bytes) -> dict:
+        code = "import sys; sys.stdout.buffer.write(%r); sys.stdout.flush()" % payload
+        self.write_gate({"id": "c", "argv": [PY, "-c", code], "expect": expect, "timeout_s": 20})
+        contract.derive(self.root)
+        return contract.execute(self.root)["criteria"][0]
+
+    def test_utf8_output_is_still_judged(self) -> None:
+        out = "✔ adds a note\n1 skipped\n".encode("utf-8") + b"\xff\n"
+        result = self.run_bytes({"stdout_not_contains": "skipped"}, out)
+        self.assertEqual(result["verdict"], "fail")
+        self.assertIn("skipped", result["stderr_tail"])
+
+    def test_utf8_output_reaches_the_tail(self) -> None:
+        out = "✔ adds a note\nℹ skipped 0\n".encode("utf-8")
+        result = self.run_bytes({"stdout_contains": "skipped 0"}, out)
+        self.assertEqual(result["verdict"], "ok")
+        self.assertIn("✔ adds a note", result["stdout_tail"])
+
+    def test_undecodable_bytes_do_not_lose_the_stream(self) -> None:
+        result = self.run_bytes({"stdout_contains": "OK"}, b"\xff\xfe garbage\nOK\n")
+        self.assertEqual(result["verdict"], "ok")
+        self.assertIn("OK", result["stdout_tail"])
+
+    def child_encoding(self) -> str:
+        code = "import os; print(os.environ.get('PYTHONIOENCODING', '<unset>'))"
+        self.write_gate({"id": "c", "argv": [PY, "-c", code], "timeout_s": 20})
+        contract.derive(self.root)
+        return contract.execute(self.root)["criteria"][0]["stdout_tail"].strip()
+
+    def test_a_python_criterion_prints_utf8(self) -> None:
+        # A child Python printing a path its locale cannot encode (Korean on
+        # a cp1252 Windows) died mid-print and left no output to judge.
+        with mock.patch.dict(os.environ):
+            os.environ.pop("PYTHONIOENCODING", None)
+            self.assertEqual(self.child_encoding(), "utf-8")
+
+    def test_the_users_own_python_encoding_is_kept(self) -> None:
+        with mock.patch.dict(os.environ, {"PYTHONIOENCODING": "latin-1"}):
+            self.assertEqual(self.child_encoding(), "latin-1")
 
 
 class TestExpectValidation(TempProject):
@@ -1102,7 +1151,7 @@ class TestGradingFilesChangedSinceApproval(TempProject):
         path = self.setup_contract()
         approval.approve(self.root, "spec/05-gate.md")
         store = self.root / ".gatekit" / "approvals.json"
-        data = json.loads(store.read_text())
+        data = json.loads(store.read_text(encoding="utf-8"))
         for entry in data["approvals"]:
             entry.pop("grading", None)
         store.write_text(json.dumps(data))

@@ -262,11 +262,44 @@ def _trusted_hook_keys_fallback(text: str) -> List[str]:
     a real `trusted_hash` key; a header existing at all is Codex's own record
     that the approval flow ran for that hook.
     """
-    return [
-        m.group(1).replace('\\"', '"').replace("\\\\", "\\")
-        for m in (_HOOKS_STATE_HEADER_RE.match(line) for line in text.splitlines())
-        if m
-    ]
+    keys = []
+    for line in text.splitlines():
+        m = _HOOKS_STATE_HEADER_RE.match(line)
+        if not m:
+            continue
+        try:
+            keys.append(_toml_unescape(m.group(1)))
+        except ValueError:
+            continue  # malformed escape: TOML rejects it, so this is no entry
+    return keys
+
+
+#: TOML basic-string escapes, one alternation so `\\u0041` reads as a
+#: backslash followed by `u0041`, never as `\` + `A`.
+_TOML_ESCAPE_RE = re.compile(r'\\(?:u([0-9A-Fa-f]{4})|U([0-9A-Fa-f]{8})|(.))')
+_TOML_SIMPLE_ESCAPES = {"b": "\b", "t": "\t", "n": "\n", "f": "\f", "r": "\r",
+                        '"': '"', "\\": "\\"}
+
+
+def _toml_unescape(body: str) -> str:
+    """Decode a TOML basic string's escapes, as `tomllib` would.
+
+    Codex writes the hook path into the key; a path with non-ASCII characters
+    can be spelled `\\uXXXX`, so reading only `\\"` and `\\\\` left a project
+    under a non-ASCII home directory never matching its own trust entry.
+    """
+    def one(m: "re.Match[str]") -> str:
+        code = m.group(1) or m.group(2)
+        if code:
+            point = int(code, 16)
+            if 0xD800 <= point <= 0xDFFF or point > 0x10FFFF:
+                raise ValueError("not a Unicode scalar value")
+            return chr(point)
+        if m.group(3) in _TOML_SIMPLE_ESCAPES:
+            return _TOML_SIMPLE_ESCAPES[m.group(3)]
+        raise ValueError("invalid escape")
+
+    return _TOML_ESCAPE_RE.sub(one, body)
 
 
 def _trusted_hook_keys(text: str) -> List[str]:

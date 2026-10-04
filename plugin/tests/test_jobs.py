@@ -107,7 +107,7 @@ class TestAtomicWrite(JobTestCase):
     def test_write_json_leaves_no_temp_files(self) -> None:
         target = self.root / "sub" / "x.json"
         jobs.write_json(target, {"a": 1})
-        self.assertEqual(json.loads(target.read_text()), {"a": 1})
+        self.assertEqual(json.loads(target.read_text(encoding="utf-8")), {"a": 1})
         leftovers = [p.name for p in target.parent.iterdir() if p.name.startswith(".tmp-")]
         self.assertEqual(leftovers, [])
 
@@ -115,7 +115,26 @@ class TestAtomicWrite(JobTestCase):
         target = self.root / "x.json"
         jobs.write_json(target, {"a": 1})
         jobs.write_json(target, {"b": 2})
-        self.assertEqual(json.loads(target.read_text()), {"b": 2})
+        self.assertEqual(json.loads(target.read_text(encoding="utf-8")), {"b": 2})
+
+    def test_write_json_retries_a_transient_refusal(self) -> None:
+        # status.json is read by the other side while the runner rewrites it;
+        # on Windows that is a PermissionError the shared writer retries.
+        target = self.root / "status.json"
+        real, calls = os.replace, {"n": 0}
+
+        def replace(src, dst):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise PermissionError(13, "simulated: file in use")
+            return real(src, dst)
+
+        with mock.patch.object(config, "_REPLACE_ATTEMPTS", 3), \
+                mock.patch.object(config, "_REPLACE_DELAY_S", 0.0), \
+                mock.patch.object(config.os, "replace", side_effect=replace):
+            jobs.write_json(target, {"state": "stopped"})
+        self.assertEqual(calls["n"], 2)
+        self.assertEqual(json.loads(target.read_text(encoding="utf-8")), {"state": "stopped"})
 
 
 class TestPrompt(JobTestCase):
@@ -171,7 +190,7 @@ class TestStart(JobTestCase):
         self.assertTrue((tdir / "prompt.md").is_file())
         self.assertFalse((tdir / "output.txt").exists())
         self.assertFalse((self.root / "src" / "note.txt").exists())
-        status = json.loads((tdir / "status.json").read_text())
+        status = json.loads((tdir / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(status["state"], "queued")
 
     def test_happy_path_worker_and_gate_pass(self) -> None:
@@ -180,11 +199,11 @@ class TestStart(JobTestCase):
         self.set_env(FAKE_WORKER_OUT="src/note.txt", FAKE_WORKER_BODY="hello")
         job = jobs.start(self.root)
         tdir = self.task_dir(job["job_id"], "write-note")
-        status = json.loads((tdir / "status.json").read_text())
+        status = json.loads((tdir / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(status["state"], "passed")
         self.assertEqual(status["gates_passed"], 1)
-        self.assertEqual((self.root / "src" / "note.txt").read_text(), "hello")
-        gates = json.loads((tdir / "gates.json").read_text())
+        self.assertEqual((self.root / "src" / "note.txt").read_text(encoding="utf-8"), "hello")
+        gates = json.loads((tdir / "gates.json").read_text(encoding="utf-8"))
         self.assertEqual(gates["verdict"], verdict.OK)
 
     def test_worker_receives_task_and_job_env(self) -> None:
@@ -192,7 +211,7 @@ class TestStart(JobTestCase):
         self.write_tasks(self.simple_task())
         self.set_env(FAKE_WORKER_OUT="src/note.txt")
         job = jobs.start(self.root)
-        stderr = (self.task_dir(job["job_id"], "write-note") / "stderr.txt").read_text()
+        stderr = (self.task_dir(job["job_id"], "write-note") / "stderr.txt").read_text(encoding="utf-8")
         self.assertIn("task=write-note", stderr)
         self.assertIn("job=%s" % job["job_id"], stderr)
 
@@ -201,7 +220,7 @@ class TestStart(JobTestCase):
         self.write_tasks(self.simple_task())
         self.set_env(FAKE_WORKER_OUT="src/note.txt")
         job = jobs.start(self.root)
-        stderr = (self.task_dir(job["job_id"], "write-note") / "stderr.txt").read_text()
+        stderr = (self.task_dir(job["job_id"], "write-note") / "stderr.txt").read_text(encoding="utf-8")
         self.assertNotIn("prompt=0 chars", stderr)
 
     def test_exit_zero_but_failing_gate_is_failed_never_passed(self) -> None:
@@ -210,7 +229,7 @@ class TestStart(JobTestCase):
         # Worker exits 0 but writes nothing, so the file-exists gate fails.
         self.set_env(FAKE_WORKER_EXIT=0)
         job = jobs.start(self.root)
-        status = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        status = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(status["exit"], 0)
         self.assertEqual(status["state"], "failed")
         self.assertNotEqual(status["state"], "passed")
@@ -221,18 +240,18 @@ class TestStart(JobTestCase):
         self.write_tasks(self.simple_task())
         self.set_env(FAKE_WORKER_OUT="src/note.txt", FAKE_WORKER_EXIT=2)
         job = jobs.start(self.root)
-        status = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        status = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(status["state"], "failed")
 
     def test_timeout_kills_worker_and_records_timeout_state(self) -> None:
         self.write_config()
         self.write_tasks(self.simple_task())
         self.set_env(FAKE_WORKER_OUT="src/note.txt", FAKE_WORKER_SLEEP=30)
-        cfg = json.loads((self.root / ".gatekit" / "config.json").read_text())
+        cfg = json.loads((self.root / ".gatekit" / "config.json").read_text(encoding="utf-8"))
         cfg["build"]["task_timeout_s"] = 1
         (self.root / ".gatekit" / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
         job = jobs.start(self.root)
-        status = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        status = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(status["state"], "timeout")
         self.assertIn("task_timeout_s", status["detail"])
 
@@ -260,7 +279,7 @@ class TestStart(JobTestCase):
         self.set_env(FAKE_WORKER_OUT="src/note.txt")
         job = jobs.start(self.root, dry_run=True)
         saved = json.loads(
-            (self.root / ".gatekit" / "jobs" / job["job_id"] / "job.json").read_text())
+            (self.root / ".gatekit" / "jobs" / job["job_id"] / "job.json").read_text(encoding="utf-8"))
         self.assertEqual(saved["backend"]["name"], "fake")
         self.assertFalse(saved["backend"]["unsafe"])
 
@@ -336,7 +355,7 @@ class TestRedelegate(JobTestCase):
                      FAKE_WORKER_PASS_AT=2)
         job = jobs.start(self.root)
         tdir = self.task_dir(job["job_id"], "write-note")
-        first = json.loads((tdir / "status.json").read_text())
+        first = json.loads((tdir / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(first["state"], "failed")
 
         status = jobs.redelegate(self.root, "write-note", job["job_id"])
@@ -354,7 +373,7 @@ class TestRedelegate(JobTestCase):
         job = jobs.start(self.root)
         tdir = self.task_dir(job["job_id"], "write-note")
         jobs.redelegate(self.root, "write-note", job["job_id"])
-        prompt = (tdir / "prompt.md").read_text()
+        prompt = (tdir / "prompt.md").read_text(encoding="utf-8")
         self.assertIn("Previous attempt failed", prompt)
         self.assertIn("file-exists", prompt)
         self.assertIn("missing: src/note.txt", prompt)
@@ -365,7 +384,7 @@ class TestRedelegate(JobTestCase):
 
         self.write_config()
         self.write_tasks(self.simple_task())
-        cfg = json.loads((self.root / ".gatekit" / "config.json").read_text())
+        cfg = json.loads((self.root / ".gatekit" / "config.json").read_text(encoding="utf-8"))
         cfg["build"]["max_retries"] = 1
         (self.root / ".gatekit" / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
         job = jobs.start(self.root)  # attempt 1 fails (no file written)
@@ -395,7 +414,7 @@ class TestRunGates(JobTestCase):
         self.write_tasks(task)
         self.set_env(FAKE_WORKER_OUT="src/note.txt")
         job = jobs.start(self.root)
-        status = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        status = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(status["state"], "failed")
         self.assertEqual(status["gates_verdict"], verdict.UNVERIFIED)
 
@@ -411,6 +430,29 @@ class TestRunGates(JobTestCase):
             {"name": "tokens", "argv": [
                 sys.executable, "${CLAUDE_PLUGIN_ROOT}/gatekit/gates/tokens.py", "--help"]}]})
         self.assertEqual(result["gates"][0]["verdict"], verdict.OK, result["gates"][0])
+
+    def test_gate_output_in_the_locale_codec_is_kept(self) -> None:
+        # A child Python prints a path in the locale codec (cp949 on a Korean
+        # Windows); read as UTF-8 with replacement it lost the path the
+        # not-yet-runnable classifier matches on.
+        code = "import sys; sys.stdout.buffer.write(%r)" % "/data/홍길동/x".encode("cp949")
+        with mock.patch.object(jobs.runcheck.locale, "getpreferredencoding", return_value="cp949"):
+            result = jobs.run_gates(self.root, {"gates": [
+                {"name": "path", "argv": [sys.executable, "-c", code]}]})
+        self.assertIn("/data/홍길동/x", result["gates"][0]["stdout_tail"])
+
+    def test_a_python_gate_prints_utf8(self) -> None:
+        # Same as a contract criterion: a gate's own Python must not die
+        # printing a path its locale cannot encode; a user's setting is kept.
+        code = "import os; print(os.environ.get('PYTHONIOENCODING', '<unset>'))"
+        gate = {"gates": [{"name": "enc", "argv": [sys.executable, "-c", code]}]}
+        with mock.patch.dict(os.environ):
+            os.environ.pop("PYTHONIOENCODING", None)
+            out = jobs.run_gates(self.root, gate)["gates"][0]["stdout_tail"].strip()
+        self.assertEqual(out, "utf-8")
+        with mock.patch.dict(os.environ, {"PYTHONIOENCODING": "latin-1"}):
+            out = jobs.run_gates(self.root, gate)["gates"][0]["stdout_tail"].strip()
+        self.assertEqual(out, "latin-1")
 
     def test_gate_stdout_and_stderr_tails_are_captured(self) -> None:
         result = jobs.run_gates(self.root, {"gates": [
@@ -985,11 +1027,11 @@ class TestPreflight(JobTestCase):
         self.set_env(FAKE_WORKER_OUT="src/note.txt", FAKE_WORKER_BODY="overwritten")
         job = jobs.start(self.root)
         tdir = self.task_dir(job["job_id"], "write-note")
-        status = json.loads((tdir / "status.json").read_text())
+        status = json.loads((tdir / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(status["state"], "passed")
         self.assertIn("preflight", status["detail"])
         self.assertFalse((tdir / "output.txt").exists(), "no worker should have run")
-        self.assertEqual((self.root / "src" / "note.txt").read_text(), "already there")
+        self.assertEqual((self.root / "src" / "note.txt").read_text(encoding="utf-8"), "already there")
         self.assertTrue((tdir / "preflight.json").is_file())
 
     def test_command_error_gate_refuses_to_start(self) -> None:
@@ -1024,7 +1066,7 @@ class TestPreflight(JobTestCase):
         self.set_env(FAKE_WORKER_OUT="src/note.txt")
         job = jobs.start(self.root)
         tdir = self.task_dir(job["job_id"], "write-note")
-        pre = json.loads((tdir / "preflight.json").read_text())
+        pre = json.loads((tdir / "preflight.json").read_text(encoding="utf-8"))
         self.assertEqual(pre["verdict"], verdict.UNVERIFIED)
         self.assertEqual(job["preflight_warnings"], [])
         self.assertTrue((tdir / "output.txt").is_file())
@@ -1035,9 +1077,9 @@ class TestPreflight(JobTestCase):
         self.set_env(FAKE_WORKER_OUT="src/note.txt", FAKE_WORKER_BODY="hello")
         job = jobs.start(self.root)
         tdir = self.task_dir(job["job_id"], "write-note")
-        pre = json.loads((tdir / "preflight.json").read_text())
+        pre = json.loads((tdir / "preflight.json").read_text(encoding="utf-8"))
         self.assertEqual(pre["verdict"], verdict.FAIL)
-        status = json.loads((tdir / "status.json").read_text())
+        status = json.loads((tdir / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(status["state"], "passed")
         self.assertTrue((tdir / "output.txt").is_file())
 
@@ -1046,7 +1088,7 @@ class TestPreflight(JobTestCase):
         self.write_tasks(self.simple_task(gates=[{"name": "always", "argv": PASS_GATE}]))
         job = jobs.start(self.root)
         status = json.loads(
-            (self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+            (self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(status["state"], "passed")
         self.assertIn("warn", status["detail"])
         self.assertIn("before any work", status["detail"])
@@ -1061,7 +1103,7 @@ class TestPreflight(JobTestCase):
         tdir = self.task_dir(job["job_id"], "write-note")
         self.assertFalse((tdir / "preflight.json").exists())
         self.assertTrue((tdir / "output.txt").is_file())
-        saved = json.loads((self.root / ".gatekit" / "jobs" / job["job_id"] / "job.json").read_text())
+        saved = json.loads((self.root / ".gatekit" / "jobs" / job["job_id"] / "job.json").read_text(encoding="utf-8"))
         self.assertTrue(saved["no_preflight"])
 
     def test_suspicious_gate_starts_the_job_with_a_warning(self) -> None:
@@ -1157,12 +1199,12 @@ class TestRedelegateReread(JobTestCase):
         self.set_env(FAKE_WORKER_OUT="src/note.txt")
         job = jobs.start(self.root)
         tdir = self.task_dir(job["job_id"], "write-note")
-        self.assertEqual(json.loads((tdir / "status.json").read_text())["state"], "failed")
+        self.assertEqual(json.loads((tdir / "status.json").read_text(encoding="utf-8"))["state"], "failed")
         # The operator fixes the gate in spec/04-tasks.md; the job must see it.
         self.write_tasks(self.simple_task())
         status = jobs.redelegate(self.root, "write-note", job["job_id"])
         self.assertEqual(status["state"], "passed")
-        snapshot = json.loads((tdir / "task.json").read_text())
+        snapshot = json.loads((tdir / "task.json").read_text(encoding="utf-8"))
         self.assertEqual(snapshot["gates"][0]["name"], "file-exists")
         self.assertIn("re-read", status["detail"])
         self.assertIn("gates changed", status["detail"])
@@ -1192,7 +1234,7 @@ class TestRedelegateReread(JobTestCase):
         self.write_tasks(self.simple_task())
         job = jobs.start(self.root)
         jobs.redelegate(self.root, "write-note", job["job_id"])
-        prompt = (self.task_dir(job["job_id"], "write-note") / "prompt.md").read_text()
+        prompt = (self.task_dir(job["job_id"], "write-note") / "prompt.md").read_text(encoding="utf-8")
         self.assertIn("gate command itself looks wrong", prompt)
         self.assertIn("do not adapt the code", prompt)
 
@@ -1287,12 +1329,12 @@ class TestStop(JobTestCase):
         self.assertFalse(thread.is_alive())
         self.assertNotIn("error", holder)
         self.assertIn("write-note", result["stopped"])
-        st1 = json.loads((self.task_dir(job_id, "write-note") / "status.json").read_text())
-        st2 = json.loads((self.task_dir(job_id, "second") / "status.json").read_text())
+        st1 = json.loads((self.task_dir(job_id, "write-note") / "status.json").read_text(encoding="utf-8"))
+        st2 = json.loads((self.task_dir(job_id, "second") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(st1["state"], "stopped")
         self.assertEqual(st2["state"], "stopped")
         self.assertFalse((self.task_dir(job_id, "second") / "output.txt").exists())
-        saved = json.loads((self.root / ".gatekit" / "jobs" / job_id / "job.json").read_text())
+        saved = json.loads((self.root / ".gatekit" / "jobs" / job_id / "job.json").read_text(encoding="utf-8"))
         self.assertIn("stopped_at", saved)
 
     def test_stop_never_signals_a_pid_it_did_not_start(self) -> None:
@@ -1408,8 +1450,8 @@ class TestDependencyGating(JobTestCase):
         self.write_tasks(first, second)
         self.set_env(FAKE_WORKER_OUT="src/second.txt")
         job = jobs.start(self.root)
-        st1 = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
-        st2 = json.loads((self.task_dir(job["job_id"], "second") / "status.json").read_text())
+        st1 = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
+        st2 = json.loads((self.task_dir(job["job_id"], "second") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(st1["state"], "failed")
         self.assertEqual(st2["state"], "blocked")
         self.assertIn("write-note", st2["detail"])
@@ -1439,7 +1481,7 @@ class TestDependencyGating(JobTestCase):
         self.write_tasks(first, second)
         self.set_env(FAKE_WORKER_OUT="src/second.txt")
         job = jobs.start(self.root)
-        st2 = json.loads((self.task_dir(job["job_id"], "second") / "status.json").read_text())
+        st2 = json.loads((self.task_dir(job["job_id"], "second") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(st2["state"], "blocked")
         self.assertIn("gates unverified", st2["detail"])
 
@@ -1451,8 +1493,8 @@ class TestDependencyGating(JobTestCase):
         c = self.simple_task(task_id="c", target="src/c.txt", depends_on=["b"], round=3)
         self.write_tasks(a, b, c)
         job = jobs.start(self.root)
-        st_b = json.loads((self.task_dir(job["job_id"], "b") / "status.json").read_text())
-        st_c = json.loads((self.task_dir(job["job_id"], "c") / "status.json").read_text())
+        st_b = json.loads((self.task_dir(job["job_id"], "b") / "status.json").read_text(encoding="utf-8"))
+        st_c = json.loads((self.task_dir(job["job_id"], "c") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(st_b["state"], "blocked")
         self.assertIn("a (failed)", st_b["detail"])
         self.assertEqual(st_c["state"], "blocked")
@@ -1466,7 +1508,7 @@ class TestDependencyGating(JobTestCase):
         self.write_tasks(first, second)
         self.set_env(FAKE_WORKER_OUT="src/note.txt")
         job = jobs.start(self.root)
-        st2 = json.loads((self.task_dir(job["job_id"], "second") / "status.json").read_text())
+        st2 = json.loads((self.task_dir(job["job_id"], "second") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(st2["state"], "passed")
 
     def test_dependency_outside_the_job_does_not_block(self) -> None:
@@ -1477,7 +1519,7 @@ class TestDependencyGating(JobTestCase):
         self.write_tasks(first, second)
         self.set_env(FAKE_WORKER_OUT="src/second.txt")
         job = jobs.start(self.root, task_ids=["second"])
-        st2 = json.loads((self.task_dir(job["job_id"], "second") / "status.json").read_text())
+        st2 = json.loads((self.task_dir(job["job_id"], "second") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(st2["state"], "passed")
 
 
@@ -1655,7 +1697,7 @@ class TestGatesRecheck(JobTestCase):
         (self.root / "src" / "note.txt").write_text("done", encoding="utf-8")
         result = jobs.recheck(self.root, job_id=job["job_id"])
         self.assertEqual(result["rechecked"], ["write-note"])
-        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(st["state"], "passed")
         self.assertIn("recheck", st["detail"])
         self.assertFalse((self.task_dir(job["job_id"], "write-note") / "output.txt").exists())
@@ -1667,7 +1709,7 @@ class TestGatesRecheck(JobTestCase):
         # The operator narrows the gate to something that passes right now.
         self.retarget("write-note", [sys.executable, "-c", "import sys; sys.exit(0)"])
         result = jobs.recheck(self.root, job_id=job["job_id"])
-        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(st["state"], "passed")
         self.assertIn("write-note", result["rechecked"])
 
@@ -1676,7 +1718,7 @@ class TestGatesRecheck(JobTestCase):
         self.write_tasks(self.simple_task())
         job = jobs.start(self.root, dry_run=True)
         jobs.recheck(self.root, job_id=job["job_id"])
-        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(st["state"], "failed")
 
     def test_an_unverified_gate_does_not_round(self) -> None:
@@ -1686,7 +1728,7 @@ class TestGatesRecheck(JobTestCase):
         self.write_tasks(task)
         job = jobs.start(self.root, dry_run=True)
         jobs.recheck(self.root, job_id=job["job_id"])
-        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(st["gates_verdict"], verdict.UNVERIFIED)
         self.assertNotEqual(st["state"], "passed")
 
@@ -1701,7 +1743,7 @@ class TestGatesRecheck(JobTestCase):
         (self.root / "src" / "second.txt").write_text("x", encoding="utf-8")
         result = jobs.recheck(self.root, task_ids=["write-note"], job_id=job["job_id"])
         self.assertEqual(result["rechecked"], ["write-note"])
-        st2 = json.loads((self.task_dir(job["job_id"], "second") / "status.json").read_text())
+        st2 = json.loads((self.task_dir(job["job_id"], "second") / "status.json").read_text(encoding="utf-8"))
         self.assertNotEqual(st2["state"], "passed")
 
     def test_recheck_writes_gates_json(self) -> None:
@@ -1711,7 +1753,7 @@ class TestGatesRecheck(JobTestCase):
         (self.root / "src").mkdir(exist_ok=True)
         (self.root / "src" / "note.txt").write_text("x", encoding="utf-8")
         jobs.recheck(self.root, job_id=job["job_id"])
-        gates = json.loads((self.task_dir(job["job_id"], "write-note") / "gates.json").read_text())
+        gates = json.loads((self.task_dir(job["job_id"], "write-note") / "gates.json").read_text(encoding="utf-8"))
         self.assertEqual(gates["verdict"], verdict.OK)
 
     def test_a_task_removed_from_the_file_is_reported_not_crashed(self) -> None:
@@ -1735,9 +1777,9 @@ class TestGatesRecheck(JobTestCase):
         (self.root / "src").mkdir(exist_ok=True)
         (self.root / "src" / "note.txt").write_text("x", encoding="utf-8")
         jobs.recheck(self.root, job_id=job["job_id"])
-        first = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        first = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         jobs.recheck(self.root, job_id=job["job_id"])
-        second = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        second = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(first["state"], second["state"])
         self.assertEqual(second["state"], "passed")
 
@@ -1813,7 +1855,7 @@ class TestHostExecution(JobTestCase):
         self.host_config()
         self.write_tasks(self.simple_task())
         job = jobs.start(self.root)
-        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(st["state"], "queued")
         self.assertIn("host", st["detail"])
 
@@ -1821,7 +1863,7 @@ class TestHostExecution(JobTestCase):
         self.host_config()
         self.write_tasks(self.simple_task())
         job = jobs.start(self.root)
-        saved = json.loads((self.root / ".gatekit" / "jobs" / job["job_id"] / "job.json").read_text())
+        saved = json.loads((self.root / ".gatekit" / "jobs" / job["job_id"] / "job.json").read_text(encoding="utf-8"))
         self.assertEqual(saved["execution"], "host")
 
     def test_start_returns_the_ordered_plan(self) -> None:
@@ -1878,7 +1920,7 @@ class TestHostExecution(JobTestCase):
         self.write_tasks(self.simple_task())
         self.set_env(FAKE_WORKER_OUT="src/note.txt")
         job = jobs.start(self.root)
-        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(st["state"], "passed")
         self.assertTrue((self.task_dir(job["job_id"], "write-note") / "output.txt").is_file())
 
@@ -1898,7 +1940,7 @@ class TestHostExecution(JobTestCase):
         (self.root / "src").mkdir(exist_ok=True)
         (self.root / "src" / "note.txt").write_text("already", encoding="utf-8")
         job = jobs.start(self.root)
-        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         self.assertEqual(st["state"], "passed")
         self.assertIn("preflight", st["detail"])
 
@@ -1938,17 +1980,23 @@ class TestHostExecution(JobTestCase):
         jobs.start(self.root)
         (self.root / "src").mkdir(exist_ok=True)
         (self.root / "src" / "note.txt").write_text("x", encoding="utf-8")
-        self.assertEqual(
-            jobs.run(["complete", "write-note", "--root", str(self.root)]), 0
-        )
+        self.assertEqual(self.run_cli(["complete", "write-note", "--root", str(self.root)]), 0)
 
     def test_cli_complete_exits_one_when_gates_fail(self) -> None:
         self.host_config()
         self.write_tasks(self.simple_task())
         jobs.start(self.root)
-        self.assertEqual(
-            jobs.run(["complete", "write-note", "--root", str(self.root)]), 1
-        )
+        self.assertEqual(self.run_cli(["complete", "write-note", "--root", str(self.root)]), 1)
+
+    def run_cli(self, argv: list) -> int:
+        # The exit code is under test, not the console: run() is called in
+        # process, where stdout is the test runner's (cp949 on a Korean
+        # Windows) and the report's em dash would turn the verdict into exit 2.
+        # Making the console print is cli.main's job, not run()'s.
+        import io
+        from contextlib import redirect_stdout
+        with redirect_stdout(io.StringIO()):
+            return jobs.run(argv)
 
     def test_cli_complete_without_a_task_exits_two(self) -> None:
         self.host_config()
@@ -2253,7 +2301,7 @@ MSG_GATE = [sys.executable, "-c",
             "import pathlib, sys\n"
             "p = pathlib.Path('src/msg.txt')\n"
             "with open('src/runs.log', 'a') as h: h.write('run\\n')\n"
-            "sys.stderr.write(p.read_text() if p.exists() else 'no msg')\n"
+            "sys.stderr.write(p.read_text(encoding='utf-8') if p.exists() else 'no msg')\n"
             "sys.exit(1)\n"]
 
 
@@ -2552,7 +2600,7 @@ class TestCompleteTaskBudget(JobTestCase):
 
     def gate_runs(self) -> int:
         log = self.root / "src" / "runs.log"
-        return len(log.read_text().splitlines()) if log.is_file() else 0
+        return len(log.read_text(encoding="utf-8").splitlines()) if log.is_file() else 0
 
     def complete(self, job_id: str, text: str) -> dict:
         self.say(text)
@@ -2645,7 +2693,7 @@ class TestCompleteTaskBudget(JobTestCase):
 class TestRedelegateSameFailure(JobTestCase):
     def config(self, max_retries: int) -> None:
         self.write_config()
-        cfg = json.loads((self.root / ".gatekit" / "config.json").read_text())
+        cfg = json.loads((self.root / ".gatekit" / "config.json").read_text(encoding="utf-8"))
         cfg["build"]["max_retries"] = max_retries
         (self.root / ".gatekit" / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
         self.write_tasks(self.simple_task(gates=[{"name": "msg", "argv": MSG_GATE}]))
@@ -2692,7 +2740,7 @@ class TestRedelegateSameFailure(JobTestCase):
 class TestStartSameFailure(JobTestCase):
     def config(self, max_retries: int) -> None:
         self.write_config()
-        cfg = json.loads((self.root / ".gatekit" / "config.json").read_text())
+        cfg = json.loads((self.root / ".gatekit" / "config.json").read_text(encoding="utf-8"))
         cfg["build"]["max_retries"] = max_retries
         (self.root / ".gatekit" / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
         self.write_tasks(self.simple_task())
@@ -2802,7 +2850,7 @@ class TestNotYetRunnable(JobTestCase):
         self.write_tasks(self.shell_task(), self.e2e_task("gallery"), self.e2e_task("upload"))
         job = jobs.start(self.root)
         self.assertEqual(job["preflight_warnings"], [])
-        pre = json.loads((self.task_dir(job["job_id"], "gallery") / "preflight.json").read_text())
+        pre = json.loads((self.task_dir(job["job_id"], "gallery") / "preflight.json").read_text(encoding="utf-8"))
         gate = pre["gates"][0]
         self.assertEqual(gate["preflight"], "not_yet_runnable")
         self.assertIn("package.json", gate["preflight_detail"])
@@ -2869,7 +2917,7 @@ class TestNotYetRunnable(JobTestCase):
                                         "argv": [sys.executable, "tests/run_e2e.py"]}])
         self.write_tasks(runner, user)
         job = jobs.start(self.root)
-        pre = json.loads((self.task_dir(job["job_id"], "user") / "preflight.json").read_text())
+        pre = json.loads((self.task_dir(job["job_id"], "user") / "preflight.json").read_text(encoding="utf-8"))
         self.assertEqual(pre["gates"][0]["preflight"], "not_yet_runnable")
         self.assertIn("runner", pre["gates"][0]["preflight_detail"])
 
@@ -2967,7 +3015,7 @@ class TestNotYetRunnableReview(JobTestCase):
         self.assertIn("src/tset_app.py", out.getvalue())
         self.assertNotIn("warn:", out.getvalue())
         job = json.loads((self.root / ".gatekit" / "jobs" / jobs.latest_job_id(self.root)
-                          / "job.json").read_text())
+                          / "job.json").read_text(encoding="utf-8"))
         self.assertEqual(job["preflight_warnings"], [])
         self.assertEqual(len(job["preflight_notices"]), 1)
 
@@ -2999,7 +3047,7 @@ class TestNotYetRunnableReview(JobTestCase):
                                 gates=[{"name": "g", "argv": ["bin/run-e2e"]}])
         self.write_tasks(tool, user)
         job = jobs.start(self.root)
-        pre = json.loads((self.task_dir(job["job_id"], "user") / "preflight.json").read_text())
+        pre = json.loads((self.task_dir(job["job_id"], "user") / "preflight.json").read_text(encoding="utf-8"))
         self.assertEqual(pre["gates"][0]["preflight"], "not_yet_runnable")
 
     def test_a_real_bash_on_a_missing_script_starts(self) -> None:
@@ -3009,7 +3057,7 @@ class TestNotYetRunnableReview(JobTestCase):
                                 gates=[{"name": "e2e", "argv": ["bash", "scripts/e2e.sh"]}])
         self.write_tasks(scripts, user)
         job = jobs.start(self.root)
-        pre = json.loads((self.task_dir(job["job_id"], "user") / "preflight.json").read_text())
+        pre = json.loads((self.task_dir(job["job_id"], "user") / "preflight.json").read_text(encoding="utf-8"))
         self.assertEqual(pre["gates"][0]["exit"], 127)
         self.assertEqual(pre["gates"][0]["preflight"], "not_yet_runnable")
         self.assertEqual(len(job["preflight_notices"]), 1)
@@ -3043,7 +3091,7 @@ class TestNotYetRunnableReview(JobTestCase):
             with self.subTest(program=program):
                 job = self.dep_gate_job(program, True, manifest)
                 pre = json.loads((self.task_dir(job["job_id"], "user")
-                                  / "preflight.json").read_text())
+                                  / "preflight.json").read_text(encoding="utf-8"))
                 self.assertEqual(pre["gates"][0]["preflight"], "not_yet_runnable")
                 self.assertIn("shell", pre["gates"][0]["preflight_detail"])
                 self.assertIn(manifest, pre["gates"][0]["preflight_detail"])
@@ -3131,7 +3179,7 @@ class TestGradingChangedAfterFailure(JobTestCase):
             {"name": "check", "argv": [sys.executable, "tests/check.py", *extra_argv]}])
 
     def st(self, job_id) -> dict:
-        return json.loads((self.task_dir(job_id, "t") / "status.json").read_text())
+        return json.loads((self.task_dir(job_id, "t") / "status.json").read_text(encoding="utf-8"))
 
     def ledger_entry(self) -> dict:
         return (jobs.read_attempts(self.root).get("tasks") or {}).get("t") or {}
@@ -3370,7 +3418,7 @@ class TestZeroTestsIsNotAPass(JobTestCase):
         self.write_tasks(self.gate_task(emitting_gate(stdout="  0 passing (1ms)\n")))
         job = jobs.start(self.root)
         self.assertNotIn("write-note", job.get("preflight_passed") or [])
-        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         self.assertNotEqual(st["state"], "passed")
         self.assertEqual(job["preflight_warnings"], [])
 
@@ -3392,7 +3440,7 @@ class TestZeroTestsIsNotAPass(JobTestCase):
         self.write_tasks(self.gate_task(emitting_gate(stdout="Tests:       3 skipped, 3 total\n")))
         job = jobs.start(self.root)
         self.assertNotIn("write-note", job.get("preflight_passed") or [])
-        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text())
+        st = json.loads((self.task_dir(job["job_id"], "write-note") / "status.json").read_text(encoding="utf-8"))
         self.assertNotEqual(st["state"], "passed")
         self.assertEqual(job["preflight_warnings"], [])
 
@@ -3414,7 +3462,7 @@ class TestHostExecutionFinishesJob(JobTestCase):
         self.write_tasks(self.simple_task())
         job = jobs.start(self.root)
         saved = json.loads(
-            (self.root / ".gatekit" / "jobs" / job["job_id"] / "job.json").read_text())
+            (self.root / ".gatekit" / "jobs" / job["job_id"] / "job.json").read_text(encoding="utf-8"))
         self.assertNotIn("finished_at", saved)
 
     def test_status_stamps_finished_at_once_every_task_is_terminal(self) -> None:
@@ -3428,7 +3476,7 @@ class TestHostExecutionFinishesJob(JobTestCase):
         self.assertTrue(payload["done"])
         self.assertIsNotNone(payload["finished_at"])
         saved = json.loads(
-            (self.root / ".gatekit" / "jobs" / job["job_id"] / "job.json").read_text())
+            (self.root / ".gatekit" / "jobs" / job["job_id"] / "job.json").read_text(encoding="utf-8"))
         self.assertIn("finished_at", saved)
 
     def test_finished_at_is_not_stamped_while_a_task_is_still_queued(self) -> None:
@@ -3546,7 +3594,7 @@ class TestEvaluatorSandbox(JobTestCase):
                 pass
             job_id = jobs.latest_job_id(self.root)
             saved = json.loads(
-                (self.root / ".gatekit" / "jobs" / job_id / "job.json").read_text())
+                (self.root / ".gatekit" / "jobs" / job_id / "job.json").read_text(encoding="utf-8"))
             self.assertIn("workspace-write", saved["backend"]["argv"])
         finally:
             if old_env is None:

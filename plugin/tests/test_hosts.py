@@ -13,6 +13,7 @@ if str(PLUGIN_DIR) not in sys.path:
     sys.path.insert(0, str(PLUGIN_DIR))
 
 from gatekit import hosts  # noqa: E402
+from tests._stubs import symlink_or_skip  # noqa: E402
 
 
 class HostProject(unittest.TestCase):
@@ -165,7 +166,13 @@ class TestCodexStatus(HostProject):
 
 class TestCli(HostProject):
     def test_install_subcommand(self) -> None:
-        code = hosts.run(["--host", "codex", "--root", str(self.root)])
+        # The exit code and the files are under test, not the console: run()
+        # prints the installed paths, and in process the runner's stdout can
+        # be cp1252 while the temp path holds Korean. cli.main owns the console.
+        import io
+        from contextlib import redirect_stdout
+        with redirect_stdout(io.StringIO()):
+            code = hosts.run(["--host", "codex", "--root", str(self.root)])
         self.assertEqual(code, 0)
         self.assertTrue((self.root / ".codex" / "hooks.json").is_file())
 
@@ -219,7 +226,7 @@ class TestInstallSafety(HostProject):
         import shutil
         outside = pathlib.Path(tempfile.mkdtemp())
         try:
-            os.symlink(str(outside), str(self.root / ".agents"))
+            symlink_or_skip(self, outside, self.root / ".agents")
             with self.assertRaises(ValueError):
                 self.install()
             self.assertFalse(list(outside.iterdir()))
@@ -382,3 +389,38 @@ class TestCodexTrustFallbackParser(CodexTrustProject):
         )
         keys = self.with_fallback(lambda: hosts._trusted_hook_keys(text))
         self.assertEqual(keys, ['/weird"path/.codex/hooks.json:pre_tool_use:0:0'])
+
+    # A TOML basic string may spell any character as \uXXXX or \UXXXXXXXX.
+    # The fallback read only \" and \\, so a project under a home directory
+    # with a non-ASCII name never matched its own trust entry on 3.9/3.10.
+    ESCAPES = [
+        ('D:\\\\data\\\\\\ud64d\\uae38\\ub3d9\\\\p', 'D:\\data\\홍길동\\p'),
+        ('/home/\\U0001F600/p', '/home/\U0001F600/p'),
+        ('/a\\\\u0041', '/a\\u0041'),
+        ('/tab\\there\\n', '/tab\there\n'),
+        ('/raw/홍길동', '/raw/홍길동'),
+    ]
+
+    def test_fallback_decodes_toml_escapes(self) -> None:
+        for spelled, key in self.ESCAPES:
+            with self.subTest(spelled=spelled):
+                text = '[hooks.state."%s:pre_tool_use:0:0"]\n' % spelled
+                keys = self.with_fallback(lambda: hosts._trusted_hook_keys(text))
+                self.assertEqual(keys, [key + ":pre_tool_use:0:0"])
+
+    def test_fallback_matches_a_non_ascii_project(self) -> None:
+        # json.dumps escapes non-ASCII as \uXXXX, which is valid TOML.
+        self.install()
+        path = self.hooks_json_path() + "/../../홍길동"
+        key = json.dumps(path + ":pre_tool_use:0:0")
+        text = '[hooks.state.%s]\n' % key
+        keys = self.with_fallback(lambda: hosts._trusted_hook_keys(text))
+        self.assertEqual(keys, [path + ":pre_tool_use:0:0"])
+
+    @unittest.skipUnless(hosts.tomllib is not None, "tomllib needs Python 3.11+")
+    def test_fallback_agrees_with_tomllib(self) -> None:
+        for spelled, _ in self.ESCAPES:
+            with self.subTest(spelled=spelled):
+                text = '[hooks.state."%s:x"]\nk = 1\n' % spelled
+                self.assertEqual(self.with_fallback(lambda: hosts._trusted_hook_keys(text)),
+                                 hosts._trusted_hook_keys(text))

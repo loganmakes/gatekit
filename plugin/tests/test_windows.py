@@ -21,6 +21,7 @@ from unittest import mock
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from gatekit import hookio, jobs, paths  # noqa: E402
+from tests._stubs import symlink_or_skip  # noqa: E402
 
 PLUGIN_DIR = pathlib.Path(__file__).resolve().parents[1]
 
@@ -208,6 +209,48 @@ class TestMsysPaths(unittest.TestCase):
         self.assertEqual(paths.from_msys("/c/work/app", windows=False), "/c/work/app")
         self.assertEqual(paths.from_msys("src/x.ts", windows=True), "src/x.ts")
         self.assertEqual(paths.from_msys("/usr/bin/x", windows=True), "/usr/bin/x")
+
+
+class TestSymlinkOrSkip(unittest.TestCase):
+    """Windows needs a privilege (or Developer Mode) to create a symlink and
+    refuses with WinError 1314 otherwise. A symlink test skips there, saying
+    why; any other failure to create the link is still an error."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self._tmp.name)
+        (self.root / "real.txt").write_text("x", encoding="utf-8")
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def refuse(self, exc: BaseException):
+        return mock.patch("tests._stubs.os.symlink", side_effect=exc)
+
+    def test_missing_privilege_skips_with_the_reason(self) -> None:
+        err = OSError(22, "A required privilege is not held by the client")
+        err.winerror = 1314
+        with self.refuse(err):
+            with self.assertRaises(unittest.SkipTest) as ctx:
+                symlink_or_skip(self, self.root / "real.txt", self.root / "link.txt")
+        self.assertIn("privilege", str(ctx.exception))
+
+    def test_no_symlink_support_skips(self) -> None:
+        with self.refuse(NotImplementedError("no symlinks")):
+            with self.assertRaises(unittest.SkipTest):
+                symlink_or_skip(self, self.root / "real.txt", self.root / "link.txt")
+
+    def test_any_other_error_is_raised(self) -> None:
+        with self.refuse(FileExistsError(17, "exists")):
+            with self.assertRaises(FileExistsError):
+                symlink_or_skip(self, self.root / "real.txt", self.root / "link.txt")
+
+    def test_creates_the_link_when_allowed(self) -> None:
+        link = self.root / "link.txt"
+        with mock.patch("tests._stubs.os.symlink") as made:
+            symlink_or_skip(self, self.root / "real.txt", link, target_is_directory=False)
+        made.assert_called_once_with(str(self.root / "real.txt"), str(link),
+                                     target_is_directory=False)
 
 
 if __name__ == "__main__":  # pragma: no cover

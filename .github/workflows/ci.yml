@@ -17,6 +17,16 @@ jobs:
           # code on Windows, not that a host calls the hooks there.
           - os: windows-latest
             python-version: "3.12"
+          # A Korean Windows user: Python 3.9 (the TOML fallback parser) and a
+          # temp directory with a non-ASCII name, the condition that hid the
+          # output-decoding and path bugs behind an English, ASCII runner. A
+          # cp949 locale cannot be set on the runner; the tests that need it
+          # patch locale.getpreferredencoding or force PYTHONIOENCODING.
+          - os: windows-latest
+            python-version: "3.9"
+            non_ascii_temp: true
+          - os: macos-latest
+            python-version: "3.12"
     steps:
       - uses: actions/checkout@v4
 
@@ -24,6 +34,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: Non-ASCII temp directory
+        if: ${{ matrix.non_ascii_temp }}
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "임시 폴더"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          "TEMP=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TMP=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: gate_no_abs_paths
         run: python tools/gate_no_abs_paths.py

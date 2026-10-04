@@ -7,6 +7,7 @@ import pathlib
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 # Make the `gatekit` package importable however this suite is discovered:
 # `discover -s plugin/tests` loads tests as top-level modules and puts only
@@ -108,6 +109,69 @@ class TestCorruptInput(TempProject):
     def test_non_object_json_falls_back_to_defaults(self) -> None:
         self.write_config([1, 2, 3])
         self.assertTrue(config.load(self.root)["enforce_spec_before_code"])
+
+
+class TestReplaceRetry(TempProject):
+    """Windows refuses `os.replace` onto a file another process holds open
+    (a worker or hook reading status.json or a ledger), with PermissionError
+    (WinError 5). That is transient there, so every atomic write retries it;
+    on POSIX a PermissionError is a real one and is raised at once."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.target = self.root / "state" / "x.json"
+        self._saved = (config._REPLACE_ATTEMPTS, config._REPLACE_DELAY_S)
+        config._REPLACE_ATTEMPTS, config._REPLACE_DELAY_S = 5, 0.0
+        self.real_replace = os.replace
+        self.calls = 0
+
+    def tearDown(self) -> None:
+        config._REPLACE_ATTEMPTS, config._REPLACE_DELAY_S = self._saved
+        super().tearDown()
+
+    def failing(self, times: int, exc: type = PermissionError):
+        def replace(src, dst):
+            self.calls += 1
+            if self.calls <= times:
+                raise exc(13, "simulated: file in use")
+            return self.real_replace(src, dst)
+        return mock.patch.object(config.os, "replace", side_effect=replace)
+
+    def leftovers(self) -> list:
+        return [p.name for p in self.target.parent.iterdir() if p.name.endswith(".tmp")]
+
+    def test_a_transient_refusal_is_retried(self) -> None:
+        with self.failing(2):
+            config.write_json_atomic(self.target, {"a": 1})
+        self.assertEqual(self.calls, 3)
+        self.assertEqual(json.loads(self.target.read_text(encoding="utf-8")), {"a": 1})
+        self.assertEqual(self.leftovers(), [])
+
+    def test_a_lasting_refusal_raises_and_keeps_the_old_file(self) -> None:
+        config.write_json_atomic(self.target, {"old": True})
+        with self.failing(99):
+            with self.assertRaises(PermissionError):
+                config.write_json_atomic(self.target, {"new": True})
+        self.assertEqual(self.calls, 5)
+        self.assertEqual(json.loads(self.target.read_text(encoding="utf-8")), {"old": True})
+        self.assertEqual(self.leftovers(), [])
+
+    def test_other_errors_are_not_retried(self) -> None:
+        with self.failing(99, exc=FileNotFoundError):
+            with self.assertRaises(FileNotFoundError):
+                config.write_json_atomic(self.target, {"a": 1})
+        self.assertEqual(self.calls, 1)
+
+    def test_a_single_attempt_raises_at_once(self) -> None:
+        # The POSIX setting: one attempt, no retry.
+        config._REPLACE_ATTEMPTS = 1
+        with self.failing(1):
+            with self.assertRaises(PermissionError):
+                config.write_json_atomic(self.target, {"a": 1})
+        self.assertEqual(self.calls, 1)
+
+    def test_retries_only_on_windows_by_default(self) -> None:
+        self.assertEqual(self._saved[0] > 1, os.name == "nt")
 
 
 class TestSave(TempProject):

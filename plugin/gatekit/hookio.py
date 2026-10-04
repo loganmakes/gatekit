@@ -70,6 +70,25 @@ def read_event(stream: Optional[TextIO] = None) -> Event:
     return parsed if isinstance(parsed, dict) else {}
 
 
+def utf8_stdio() -> None:
+    """Make ``print`` write UTF-8 whatever the console's code page.
+
+    For an entry point that prints text rather than a hook payload (a task
+    gate run as a script). A Windows console reports cp949 or cp1252 while a
+    report carries Korean or an em dash; without this the gate died with
+    ``UnicodeEncodeError`` instead of returning its verdict. Characters still
+    unshowable are replaced, never raised.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):  # closed or detached stream: nothing to fix
+            pass
+
+
 def session_id(event: Event) -> str:
     """Session id from the event, or a stable placeholder when absent."""
     return str(event.get("session_id") or "unknown-session")

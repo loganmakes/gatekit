@@ -14,6 +14,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from gatekit.gates import tokens as tokens_gate  # noqa: E402
+from tests._stubs import symlink_or_skip  # noqa: E402
 
 GATE_SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "gatekit" / "gates" / "tokens.py"
 
@@ -196,7 +197,7 @@ class IgnoreTests(_Base):
         target = outside / "y.css"
         target.write_text(".a { color: #123456; }", encoding="utf-8")
         self.addCleanup(lambda: (target.unlink(), outside.rmdir()))
-        (self.root / "src" / "link.css").symlink_to(target)
+        symlink_or_skip(self, target, self.root / "src" / "link.css")
         code, out = self.run_gate("src/*.css")
         self.assertEqual(code, 3, out)
         self.assertNotIn("Traceback", out)
@@ -252,11 +253,33 @@ class OutputTests(_Base):
         env.pop("PYTHONPATH", None)
         proc = subprocess.run(
             [sys.executable, str(GATE_SCRIPT), "src/a.css"],
-            cwd=str(self.root), capture_output=True, text=True, env=env, timeout=30,
+            cwd=str(self.root), capture_output=True, text=True, encoding="utf-8",
+            env=env, timeout=30,
         )
         self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
         self.assertNotIn("Traceback", proc.stderr)
         self.assertIn("#123456", proc.stdout)
+
+    def test_prints_on_a_non_utf8_console(self) -> None:
+        # A Windows console reports cp949 or cp1252; the Korean report and the
+        # em dash crashed print() and the gate died with a traceback instead
+        # of returning its verdict. Forcing cp1252 reproduces it on any OS.
+        self.tokens(V2)
+        self.write("src/a.css", ".a { color: #123456; }")
+        env = {k: v for k, v in os.environ.items() if not k.startswith("GATEKIT_")}
+        env.pop("PYTHONPATH", None)
+        env["PYTHONIOENCODING"] = "cp1252"
+        for lang in ("ko", "en"):
+            with self.subTest(lang=lang):
+                proc = subprocess.run(
+                    [sys.executable, str(GATE_SCRIPT), "--lang", lang, "src/a.css"],
+                    cwd=str(self.root), capture_output=True, env=env, timeout=30,
+                )
+                out = proc.stdout.decode("utf-8", "replace")
+                err = proc.stderr.decode("utf-8", "replace")
+                self.assertNotIn("Traceback", err)
+                self.assertEqual(proc.returncode, 1, out + err)
+                self.assertIn("#123456", out)
 
 
 if __name__ == "__main__":

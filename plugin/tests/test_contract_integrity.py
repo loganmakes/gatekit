@@ -315,7 +315,7 @@ class TestStopGate(Project):
         self.set_pipeline("verify")
         (self.root / ".gatekit" / "approvals.json").write_text("{nope", encoding="utf-8")
         proc = subprocess.run(
-            [PY, str(STOP_SCRIPT)], capture_output=True, text=True, timeout=120,
+            [PY, str(STOP_SCRIPT)], capture_output=True, text=True, encoding="utf-8", timeout=120,
             input=json.dumps({"session_id": self.session, "hook_event_name": "Stop",
                               "cwd": str(self.root)}))
         self.assertEqual(proc.returncode, 0, proc.stderr)

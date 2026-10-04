@@ -293,7 +293,7 @@ def run_gate_subprocess(event: dict, env_extra: "dict | None" = None, raw: "str 
     proc = subprocess.run(
         [sys.executable, str(GATE_SCRIPT)],
         input=raw if raw is not None else json.dumps(event),
-        capture_output=True, text=True, env=env, timeout=30)
+        capture_output=True, text=True, encoding="utf-8", env=env, timeout=30)
     return proc.returncode, proc.stdout, proc.stderr
 
 

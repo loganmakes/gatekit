@@ -26,7 +26,7 @@ def run_gate_subprocess(event: dict, env_extra: "dict | None" = None) -> "tuple[
         [sys.executable, str(GATE_SCRIPT)],
         input=json.dumps(event),
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
         env=env,
         timeout=30,
     )
@@ -383,7 +383,7 @@ class TestSubprocessInvocation(WriteGateProject):
             [sys.executable, str(GATE_SCRIPT)],
             input="",
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             env=env,
             timeout=30,
         )
@@ -395,7 +395,7 @@ class TestSubprocessInvocation(WriteGateProject):
             [sys.executable, str(GATE_SCRIPT)],
             input="{not json",
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             env=env,
             timeout=30,
         )

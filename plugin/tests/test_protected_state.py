@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from gatekit import approval, contract, ledger  # noqa: E402
 from gatekit.gates import bash as bash_gate  # noqa: E402
 from gatekit.gates import write as write_gate  # noqa: E402
+from tests._stubs import symlink_or_skip  # noqa: E402
 
 PLUGIN = pathlib.Path(__file__).resolve().parents[1]
 WRITE_SCRIPT = PLUGIN / "gatekit" / "gates" / "write.py"
@@ -86,8 +87,8 @@ class TestProtectedPath(Project):
                 self.assertIsNone(write_gate.protected_state(self.root, raw))
 
     def test_symlinked_file_and_directory(self) -> None:
-        (self.root / "link.json").symlink_to(self.root / ".gatekit" / "approvals.json")
-        (self.root / "state").symlink_to(self.root / ".gatekit", target_is_directory=True)
+        symlink_or_skip(self, self.root / ".gatekit" / "approvals.json", self.root / "link.json")
+        symlink_or_skip(self, self.root / ".gatekit", self.root / "state", target_is_directory=True)
         self.assertIsNotNone(write_gate.protected_state(self.root, "link.json"))
         self.assertIsNotNone(write_gate.protected_state(self.root, "state/contract.json"))
 
@@ -212,7 +213,7 @@ class TestBashGate(Project):
                     self.assertDenied(self.bash(command))
 
     def test_copies_through_a_symlink_or_of_a_directory(self) -> None:
-        (self.root / "g").symlink_to(self.root / ".gatekit", target_is_directory=True)
+        symlink_or_skip(self, self.root / ".gatekit", self.root / "g", target_is_directory=True)
         fake = self.root / "fake"
         (fake / ".gatekit").mkdir(parents=True)
         (fake / "approvals.json").write_text("{}", encoding="utf-8")
@@ -272,7 +273,7 @@ class TestExitZero(Project):
     def run_hook(self, script: pathlib.Path, event) -> subprocess.CompletedProcess:
         data = event if isinstance(event, str) else json.dumps(event)
         return subprocess.run([PY, str(script)], input=data, capture_output=True,
-                              text=True, timeout=60)
+                              text=True, encoding="utf-8", timeout=60)
 
     def test_deny_exits_zero(self) -> None:
         for script, event in (

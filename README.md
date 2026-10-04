@@ -1,6 +1,6 @@
 # gatekit
 
-Status: 0.16.10 — early. License: MIT.
+Status: 0.16.11 — early. License: MIT.
 
 > **Name change ahead.** gatekit will be renamed **gatebound** after the
 > current study cohort ends. Nothing changes until then: your installation,
@@ -76,6 +76,19 @@ that matter into things a hook enforces:
 
 Restart Claude Code after installing so the hooks in `plugin/hooks/hooks.json`
 are picked up.
+
+**Windows: one line.** In PowerShell (not as administrator), this installs
+whatever is missing — Git, Python, Claude Code — fixes the user PATH, sets
+`PYTHONUTF8=1` and installs or updates gatekit (ADR-0033):
+
+```powershell
+irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.11/install/install.ps1 | iex
+```
+
+Then open a new PowerShell window, run `claude` in your project folder (it
+asks you to log in the first time) and `/gatekit:doctor`. Run the line again
+to update. To see the plan without changing anything:
+`& ([scriptblock]::Create((irm <url>))) -DryRun`. Codex is not covered yet.
 
 **Claude desktop app.** Plugins work there too, and hooks run as in the CLI:
 click **+ → Plugins → Add plugin**, add the marketplace
@@ -265,7 +278,7 @@ defaults.
 
 ## Status
 
-**0.16.10 — early.** The core gate/ledger/contract/approval kernel, worker
+**0.16.11 — early.** The core gate/ledger/contract/approval kernel, worker
 dispatch (host or a different-model worker), Codex evaluator support, and
 the CI enforcement tooling are all in place; expect rough edges. See
 `CHANGELOG.md` for what shipped and `docs/decisions/` for the architectural

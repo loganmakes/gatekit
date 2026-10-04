@@ -1,6 +1,6 @@
 # gatekit
 
-상태: 0.16.10 — 초기 단계. 라이선스: MIT.
+상태: 0.16.11 — 초기 단계. 라이선스: MIT.
 
 > **이름이 바뀔 예정입니다.** gatekit은 이번 스터디가 끝나면 **gatebound**로
 > 이름이 바뀝니다. 그때까지는 달라지는 것이 없습니다. 지금 설치,
@@ -71,6 +71,19 @@ gatekit은 [Claude Code](https://claude.com/claude-code)에서 AI 보조 개발�
 
 설치 후 Claude Code를 재시작해야 `plugin/hooks/hooks.json`의 훅이
 반영됩니다.
+
+**Windows: 한 줄 설치.** PowerShell(관리자 권한 아님)에 아래 한 줄을 넣으면
+없는 것만 골라 설치합니다. Git, Python, Claude Code를 설치하고, 사용자 PATH를
+고치고, `PYTHONUTF8=1`을 설정한 뒤 gatekit을 설치하거나 업데이트합니다(ADR-0033).
+
+```powershell
+irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.11/install/install.ps1 | iex
+```
+
+그다음 PowerShell을 새로 열고, 프로젝트 폴더에서 `claude`를 실행해(처음이면
+로그인) `/gatekit:doctor`를 돌리세요. 업데이트할 때도 같은 줄을 다시 넣으면
+됩니다. 아무것도 바꾸지 않고 계획만 보려면
+`& ([scriptblock]::Create((irm <url>))) -DryRun`. Codex는 아직 포함하지 않습니다.
 
 **Claude 데스크톱 앱.** 앱에서도 플러그인이 동작하고, 훅도 CLI와 똑같이
 실행됩니다. **+ → Plugins → Add plugin**을 눌러 마켓플레이스
@@ -254,7 +267,7 @@ spec/
 
 ## 상태
 
-**0.16.10 — 초기 단계.** 게이트/원장/계약/승인 커널, 워커 실행(호스트
+**0.16.11 — 초기 단계.** 게이트/원장/계약/승인 커널, 워커 실행(호스트
 세션 또는 다른 모델의 워커), Codex 평가자 지원, CI 강제 도구가 모두
 갖춰져 있으나, 아직 거친 부분이 있을 수 있습니다. 무엇이 출시되었는지는
 `CHANGELOG.md`를, 현재 구조의 배경이 된 아키텍처 결정은

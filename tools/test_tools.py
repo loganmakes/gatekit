@@ -657,6 +657,229 @@ class TestConsoleEncoding(unittest.TestCase):
         self.assertEqual(missing, [], "gates that do not call console.utf8_stdio()")
 
 
+INSTALLER = REPO_ROOT / "install" / "install.ps1"
+POWERSHELL = pathlib.Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+
+
+class TestInstallerScript(unittest.TestCase):
+    """ADR-0033: the installer exists, and its test seams cannot steer a real run."""
+
+    def source(self) -> str:
+        self.assertTrue(INSTALLER.is_file(), INSTALLER)
+        return INSTALLER.read_text(encoding="utf-8")
+
+    def test_the_installer_is_where_the_documented_url_points(self) -> None:
+        self.assertTrue(INSTALLER.is_file(), INSTALLER)
+
+    def test_the_installer_is_ascii(self) -> None:
+        # PowerShell 5.1 reads a BOM-less file in the ANSI code page, and a
+        # BOM breaks `irm | iex` (the first command is no longer recognised):
+        # only ASCII reads the same both ways. Korean text is \u-escaped.
+        bad = [(n, ln) for n, ln in enumerate(self.source().splitlines(), 1) if not ln.isascii()]
+        self.assertEqual(bad[:3], [], "non-ASCII lines in install.ps1")
+
+    def test_the_installer_never_exits_a_piped_session(self) -> None:
+        # Under `irm | iex` an `exit` closes the user's PowerShell window.
+        import re
+        exits = [ln.strip() for ln in self.source().splitlines()
+                 if re.match(r"\s*exit\b", ln) or re.search(r"[;{]\s*exit\b", ln)]
+        self.assertEqual(exits, ["if ($PSCommandPath) { exit $code }"], exits)
+
+    def test_the_seams_are_read_only_under_dry_run(self) -> None:
+        # Every GATEKIT_INSTALL_* value goes through Get-Seam, whose first
+        # statement returns nothing unless -DryRun is set. A real run is never
+        # exercised here: a regression would install on the test machine.
+        import re
+        src = self.source()
+        self.assertEqual(src.count("GATEKIT_INSTALL_"), 1, "seam names read outside Get-Seam")
+        body = re.search(r"function Get-Seam\b[^{]*\{(.*?)\n\}", src, re.S)
+        self.assertIsNotNone(body, "no Get-Seam function")
+        first = [ln.strip() for ln in body.group(1).splitlines() if ln.strip() and not ln.strip().startswith("#")]
+        self.assertTrue(first and first[1 if first[0].startswith("param") else 0].startswith("if (-not $DryRun)"),
+                        "Get-Seam must return early unless -DryRun")
+        self.assertIn("GATEKIT_INSTALL_", body.group(1))
+
+
+@unittest.skipUnless(os.name == "nt" and POWERSHELL.is_file(), "the installer runs on Windows PowerShell")
+class TestInstallerPlan(unittest.TestCase):
+    """ADR-0033: what `install.ps1 -DryRun` decides, against a stubbed machine.
+
+    Each test builds a fake profile and PATH out of `.cmd` stubs — the Store
+    placeholder prints `Python` and exits 49 (ADR-0030), a real Python
+    forwards to this interpreter — and reads the plan as JSON. Nothing is
+    installed and no real environment value is written: the test seams
+    (`GATEKIT_INSTALL_*`) stand in for the profile, the user and machine
+    PATH, elevation and the user's PYTHONUTF8, and only under `-DryRun`.
+    """
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self._tmp.name)
+        self.home = self.root / "home"
+        self.windowsapps = self.home / "AppData" / "Local" / "Microsoft" / "WindowsApps"
+        self.realpy = self.root / "Python312"
+        self.gitdir = self.root / "Git" / "cmd"
+        self.wingetdir = self.root / "winget"
+        self.localbin = self.home / ".local" / "bin"
+        self.system32 = pathlib.Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
+        for d in (self.windowsapps, self.realpy, self.gitdir, self.wingetdir, self.localbin):
+            d.mkdir(parents=True)
+        # The Store placeholder: `Python` with no newline, exit 49.
+        for name in ("python", "python3"):
+            self.stub(self.windowsapps / name, "<nul set /p=Python\r\nexit /b 49")
+        self.stub(self.wingetdir / "winget", "echo v1.9.0")
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def stub(self, path: pathlib.Path, body: str) -> None:
+        # cmd.exe reads a batch file in the OEM code page; sys.executable may
+        # sit under a Korean user folder.
+        path.with_suffix(".cmd").write_text("@echo off\r\n" + body + "\r\n", encoding="oem")
+
+    def real_python(self) -> None:
+        for name in ("python", "python3"):
+            self.stub(self.realpy / name, '"%s" %%*' % sys.executable)
+
+    def git(self) -> None:
+        self.stub(self.gitdir / "git", "echo git version 2.56.0.windows.1")
+
+    def claude(self) -> None:
+        self.stub(self.localbin / "claude", "echo 2.1.289 (Claude Code)")
+
+    def gatekit_installed(self) -> None:
+        plugins = self.home / ".claude" / "plugins"
+        plugins.mkdir(parents=True, exist_ok=True)
+        (plugins / "installed_plugins.json").write_text(json.dumps(
+            {"version": 2, "plugins": {"gatekit@gatekit": [{"version": "0.16.10"}]}}), encoding="utf-8")
+
+    def plan(self, user_path: list, extra: list | None = None, env: dict | None = None, lang: str = "en"):
+        dirs = [str(d) for d in user_path]
+        child = {k: v for k, v in os.environ.items() if not k.startswith("GATEKIT_INSTALL_")}
+        child.pop("PYTHONUTF8", None)
+        child["PATH"] = ";".join([str(self.system32)] + dirs)
+        child.update({
+            "GATEKIT_INSTALL_HOME": str(self.home),
+            "GATEKIT_INSTALL_USER_PATH": ";".join(dirs),
+            "GATEKIT_INSTALL_MACHINE_PATH": str(self.system32),
+            "GATEKIT_INSTALL_ELEVATED": "0",
+            "GATEKIT_INSTALL_USER_PYTHONUTF8": "",
+        })
+        child.update(env or {})
+        cmd = [str(POWERSHELL), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+               "-File", str(INSTALLER), "-DryRun", "-Json", "-Lang", lang] + (extra or [])
+        proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", timeout=120, env=child)
+        try:
+            data = json.loads(proc.stdout)
+        except ValueError:
+            self.fail("no JSON plan (exit %s)\nstdout: %s\nstderr: %s" % (proc.returncode, proc.stdout, proc.stderr))
+        return proc, data
+
+    @staticmethod
+    def rows(data: dict, item: str) -> list:
+        return [r for r in data["rows"] if r["item"] == item]
+
+    def row(self, data: dict, item: str) -> dict:
+        found = self.rows(data, item)
+        self.assertEqual(len(found), 1, (item, data["rows"]))
+        return found[0]
+
+    def test_a_bare_machine_plans_every_install(self) -> None:
+        proc, data = self.plan([self.windowsapps, self.wingetdir])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertTrue(data["dry_run"])
+        for item, needle in (("git", "Git.Git"), ("python", "Python.Python.3.12"),
+                             ("claude", "claude.ai/install.ps1")):
+            row = self.row(data, item)
+            self.assertEqual(row["action"], "install", row)
+            self.assertIn(needle, row["detail"])
+            # Planned, not done: never reported as a pass.
+            self.assertEqual(row["verdict"], "unverified", row)
+        self.assertEqual(self.row(data, "gatekit")["action"], "install")
+        self.assertEqual(self.row(data, "pythonutf8")["action"], "set")
+
+    def test_the_store_placeholder_is_not_a_python(self) -> None:
+        # Only the placeholder is on PATH: it must not satisfy the Python row.
+        _, data = self.plan([self.windowsapps, self.wingetdir])
+        row = self.row(data, "python")
+        self.assertEqual(row["action"], "install")
+        self.assertIn("WindowsApps", row["detail"])
+
+    def test_a_python_behind_the_placeholder_is_moved_in_front(self) -> None:
+        self.real_python()
+        _, data = self.plan([self.windowsapps, self.realpy, self.wingetdir])
+        self.assertEqual(self.row(data, "python")["action"], "skip")
+        prepends = [r for r in self.rows(data, "path") if r["action"] == "prepend"]
+        self.assertEqual(len(prepends), 1, data["rows"])
+        self.assertIn(str(self.realpy), prepends[0]["detail"])
+
+    def test_a_python_already_in_front_changes_nothing(self) -> None:
+        self.real_python()
+        _, data = self.plan([self.realpy, self.windowsapps, self.wingetdir])
+        self.assertEqual(self.row(data, "python")["action"], "skip")
+        self.assertEqual([r for r in self.rows(data, "path") if r["action"] == "prepend"], [])
+
+    def test_claude_installed_but_off_path_gets_local_bin_appended(self) -> None:
+        self.claude()  # in $HOME\.local\bin, which the PATH lacks
+        _, data = self.plan([self.windowsapps, self.wingetdir])
+        self.assertEqual(self.row(data, "claude")["action"], "skip")
+        appends = [r for r in self.rows(data, "path") if r["action"] == "append"]
+        self.assertTrue(any(str(self.localbin) in r["detail"] for r in appends), data["rows"])
+
+    def test_a_working_machine_only_updates_gatekit(self) -> None:
+        self.real_python(); self.git(); self.claude(); self.gatekit_installed()
+        proc, data = self.plan([self.realpy, self.windowsapps, self.gitdir, self.localbin, self.wingetdir],
+                               env={"GATEKIT_INSTALL_USER_PYTHONUTF8": "1"})
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        for item in ("git", "python", "claude", "pythonutf8"):
+            row = self.row(data, item)
+            self.assertEqual((row["action"], row["verdict"]), ("skip", "ok"), row)
+        self.assertEqual(self.rows(data, "path"), [])
+        self.assertEqual(self.row(data, "gatekit")["action"], "update")
+        self.assertEqual(self.rows(data, "node"), [])  # only with -WithNode
+
+    def test_a_user_pythonutf8_is_left_alone(self) -> None:
+        _, data = self.plan([self.windowsapps, self.wingetdir], env={"GATEKIT_INSTALL_USER_PYTHONUTF8": "0"})
+        self.assertEqual(self.row(data, "pythonutf8")["action"], "skip")
+
+    def test_without_winget_installs_are_unverified_with_a_manual_link(self) -> None:
+        proc, data = self.plan([self.windowsapps])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        for item in ("git", "python"):
+            row = self.row(data, item)
+            self.assertEqual((row["action"], row["verdict"]), ("manual", "unverified"), row)
+            self.assertIn("https://", row["detail"])
+
+    def test_node_only_with_the_flag(self) -> None:
+        _, data = self.plan([self.windowsapps, self.wingetdir], extra=["-WithNode"])
+        row = self.row(data, "node")
+        self.assertEqual(row["action"], "install")
+        self.assertIn("--accept-package-agreements", row["detail"])
+
+    def test_an_elevated_window_is_refused(self) -> None:
+        proc, data = self.plan([self.windowsapps, self.wingetdir], env={"GATEKIT_INSTALL_ELEVATED": "1"})
+        self.assertEqual(proc.returncode, 1)
+        self.assertEqual(data["verdict"], "fail")
+        self.assertEqual([r["item"] for r in data["rows"]], ["elevation"])
+
+    def test_messages_follow_the_language(self) -> None:
+        _, en = self.plan([self.windowsapps, self.wingetdir])
+        _, ko = self.plan([self.windowsapps, self.wingetdir], lang="ko")
+        self.assertEqual((en["lang"], ko["lang"]), ("en", "ko"))
+        self.assertTrue(any("\uac00" <= ch <= "\ud7a3" for ch in self.row(ko, "python")["detail"]))
+        self.assertFalse(any("\uac00" <= ch <= "\ud7a3" for ch in self.row(en, "python")["detail"]))
+
+    def test_a_dry_run_leaves_the_real_user_path_alone(self) -> None:
+        import winreg
+        def user_path() -> str:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
+                return winreg.QueryValueEx(key, "Path")[0]
+        before = user_path()
+        self.plan([self.windowsapps, self.wingetdir], extra=["-WithNode"])
+        self.assertEqual(user_path(), before)
+
+
 class TestManualBundle(unittest.TestCase):
     """The Notion bundle must keep the tree and survive Korean filenames."""
 

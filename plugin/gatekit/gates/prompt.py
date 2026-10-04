@@ -67,13 +67,23 @@ _ARGS_RE = re.compile(r"<command-args>(.*?)</command-args>", re.DOTALL)
 _SKILL_PREFIX_RE = re.compile(r"^\s*\$%s-[a-z-]+\b" % _NAMES)
 
 
+#: Markers of a "prompt" the host delivers on its own — a background task's
+#: completion notice, a subagent's hand-back — wrapped in English the user
+#: never typed. A real prompt does not carry them.
+HARNESS_MARKERS = ("<task-notification>", "<agent-message", "[SYSTEM NOTIFICATION - NOT USER INPUT]")
+
+
 def language_signal(text: str) -> str:
     """The part of *text* that is the user's own words.
 
     For a slash command Claude Code sends a tagged body; the tags and the
     command name are Latin letters that would drag a Korean session to
     English. Only the ``<command-args>`` content is the user's language.
+    A harness message (:data:`HARNESS_MARKERS`) holds none of the user's
+    words: on the first host run each one flipped a Korean session to English.
     """
+    if any(marker in text for marker in HARNESS_MARKERS):
+        return ""
     if "<command-name>" in text:
         match = _ARGS_RE.search(text)
         return match.group(1) if match else ""
@@ -302,6 +312,8 @@ def handle(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     text = text if isinstance(text, str) else ""
 
     led = ledger.Ledger.load(root, session)
+    # ADR-0032: the evidence doctor needs that these hooks run, and from where.
+    led.note_hook_root(str(paths.plugin_root()))
 
     # Keep the stored language unless this prompt actually says something
     # about which language the user is writing in. An empty prompt carries no

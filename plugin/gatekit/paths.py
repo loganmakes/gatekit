@@ -212,10 +212,28 @@ def relative_to_root(root: pathlib.Path, target: pathlib.Path) -> Optional[str]:
         return None
 
 
+def python_command(windows: Optional[bool] = None) -> str:
+    """The interpreter a printed remedy should name: ``python3`` off Windows;
+    on Windows the interpreter running this code — it ran, so it works. The
+    shell a remedy is pasted into may resolve ``python3`` differently from
+    this process: on a Windows host a session started before Python's
+    directory reached PATH resolved it to the Microsoft Store placeholder
+    (prints "Python", exits 49, ADR-0030) while the registry PATH, and any
+    newer process, had the real one."""
+    if not (os.name == "nt" if windows is None else windows):
+        return "python3"
+    import sys
+    # Forward slashes run unquoted in Git Bash, PowerShell and cmd alike; a
+    # quoted path would need `&` in PowerShell, so quote only around a space.
+    exe = str(sys.executable).replace("\\", "/")
+    return '"%s"' % exe if " " in exe else exe
+
+
 def cli_invocation() -> str:
     """The one CLI form that works from a user's project directory.
 
     Used for every user-facing fix string so a copy-pasted remedy runs
-    without PYTHONPATH: ``python3 "<plugin>/bin/gatekit.py"``.
+    without PYTHONPATH: ``python3 "<plugin>/bin/gatekit.py"``, with the
+    interpreter of :func:`python_command` (the running one on Windows).
     """
-    return 'python3 "%s"' % (plugin_root() / "bin" / "gatekit.py")
+    return '%s "%s"' % (python_command(), plugin_root() / "bin" / "gatekit.py")

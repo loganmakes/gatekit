@@ -665,7 +665,7 @@ def run_gates(root, task: dict) -> dict:
                     "name": name,
                     "verdict": verdict.FAIL,
                     "exit": None,
-                    "detail": "could not run: %s" % exc,
+                    "detail": "could not run: %s%s" % (exc, runcheck.stale_path_hint(argv[0])),
                     "elapsed_s": round(time.time() - started, 3),
                     "stdout_tail": "",
                     # The classifier reads the tails; an empty one would make

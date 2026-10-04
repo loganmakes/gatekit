@@ -971,6 +971,20 @@ WEBSERVER_DID_NOT_START = (
 )
 
 
+class TestMissingProgramHint(TempProject):
+    def test_a_program_installed_after_the_session_started_is_named(self) -> None:
+        from unittest import mock
+        from gatekit import runcheck
+        self.write_gate({"id": "n", "argv": ["gk-fresh-tool-xyz", "--version"]})
+        contract.derive(self.root)
+        with mock.patch.object(runcheck, "stale_path_hint",
+                               return_value=" — gk-fresh-tool-xyz is installed but not on this session's PATH"):
+            crit = contract.execute(self.root)["criteria"][0]
+        self.assertEqual(crit["verdict"], "unverified")
+        self.assertTrue(crit["stderr_tail"].startswith("could not execute:"))
+        self.assertIn("not on this session's PATH", crit["stderr_tail"])
+
+
 class TestEnvironmentFailure(TempProject):
     """ADR-0031 decision 1: a runner that could not start judged nothing."""
 

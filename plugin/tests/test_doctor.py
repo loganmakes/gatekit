@@ -174,6 +174,26 @@ class TestAxisHooksRegistered(DoctorTestCase):
         self.assertIn("disabled", result["detail"])
         self.assertIn("enable", result["fix"])
 
+    def seen(self, hook_root: str) -> None:
+        runs = self.root / ".gatekit" / "runs"
+        runs.mkdir(parents=True, exist_ok=True)
+        (runs / "s1.json").write_text(json.dumps({
+            "session_id": "s1", "hook_root": hook_root,
+            "hook_seen_at": "2026-10-04T09:00:00+00:00"}), encoding="utf-8")
+
+    def test_hooks_seen_running_from_this_plugin_are_ok(self) -> None:
+        # ADR-0032: a --plugin-dir session with the install disabled.
+        self.install_manifest(True, enabled=False)
+        self.seen(str(doctor.paths.plugin_root()))
+        result = doctor.axis_hooks_registered(self.root)
+        self.assertEqual(result["verdict"], verdict.OK)
+        self.assertIn("running from", result["detail"])
+
+    def test_hooks_seen_from_another_copy_are_not_evidence(self) -> None:
+        self.install_manifest(True, enabled=False)
+        self.seen(str(self.home / "some" / "other" / "plugin"))
+        self.assertEqual(doctor.axis_hooks_registered(self.root)["verdict"], verdict.FAIL)
+
     def test_installed_without_enabled_entry_is_unverified(self) -> None:
         self.install_manifest(True, enabled=None)
         self.assertEqual(doctor.axis_hooks_registered(self.root)["verdict"], verdict.UNVERIFIED)

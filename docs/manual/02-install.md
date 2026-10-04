@@ -17,12 +17,18 @@ gatekit 커널은 파이썬 표준 라이브러리만 쓴다. `pip install`이 �
 Windows PC에는 gatekit이 전제하는 것이 하나도 깔려 있지 않다. Claude Code도, Git도, 파이썬도 없고, `python`이라고 치면 Microsoft Store 안내용 자리표시자가 `Python`이라는 글자만 찍고 끝난다. **PowerShell**(관리자 권한 아님)에서 한 줄이면 된다(ADR-0033). 관리자로 연 창이면 설치 스크립트가 멈추고 다시 열라고 안내한다.
 
 ```powershell
-irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.12/install/install.ps1 | iex
+irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.13/install/install.ps1 | iex
 ```
 
-스크립트는 이미 있는 것은 건너뛰고 없는 것만 설치한다. Git, 진짜 파이썬 3.9 이상(Store 자리표시자는 치지 않는다), Claude Code를 `winget`과 공식 설치기로 깔고, 사용자 PATH를 고친다(자리표시자보다 앞에 진짜 파이썬, `.local\bin` 추가). 지금 창의 PATH를 새로 읽고, `PYTHONUTF8=1`을 설정한 뒤 플러그인을 설치하거나 업데이트한다. 끝에 항목마다 `ok`/`warn`/`fail`/`unverified`가 나온다. 시스템 PATH와 관리자 권한은 건드리지 않고, 다시 실행해도 안전하다. 업데이트도 같은 줄이다.
+스크립트는 이미 있는 것은 건너뛰고 없는 것만 설치한다. Git, 진짜 파이썬 3.9 이상(Store 자리표시자는 치지 않는다), Claude Code, Node.js LTS를 `winget`과 공식 설치기로 깔고, 사용자 PATH를 고친다(자리표시자보다 앞에 진짜 파이썬, `.local\bin` 추가). 지금 창의 PATH를 새로 읽고, `PYTHONUTF8=1`을 설정한 뒤 플러그인을 설치하거나 업데이트한다. 끝에 항목마다 `ok`/`warn`/`fail`/`unverified`가 나온다. 시스템 PATH와 관리자 권한은 건드리지 않고, 다시 실행해도 안전하다. 업데이트도 같은 줄이다.
 
-그다음 PowerShell을 새로 열고 프로젝트 폴더에서 `claude`를 실행해 로그인한 뒤 `/gatekit:doctor`를 돌린다. 바꾸지 않고 계획만 보려면 `& ([scriptblock]::Create((irm <url>))) -DryRun`, 웹앱용 Node.js까지 깔려면 같은 형태로 `-WithNode`를 붙인다. Codex도 쓰려면 `-WithCodex`를 붙인다. Codex CLI를 `npm.cmd`로 설치하고(Node.js도 함께), 마지막 `codex-hooks` 줄이 프로젝트마다 남은 두 단계(`install --host codex`, `/hooks`에서 신뢰)를 `warn`으로 알려 준다. Codex 플러그인(`codex plugin add`)은 설치하지 않는다(ADR-0033 결정 12).
+그다음 PowerShell을 새로 열고 프로젝트 폴더에서 `claude`를 실행해 로그인한 뒤 `/gatekit:doctor`를 돌린다. 바꾸지 않고 계획만 보려면 `& ([scriptblock]::Create((irm <url>))) -DryRun`. Node.js는 따로 붙이지 않아도 없으면 설치한다(예전 안내의 `-WithNode`는 붙여도 무방하다, ADR-0033 결정 13). Codex도 쓰려면 아래 한 줄을 쓴다.
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.13/install/install.ps1))) -WithCodex
+```
+
+Codex CLI를 `npm.cmd`로 설치하고, 마지막 `codex-hooks` 줄이 프로젝트마다 남은 두 단계(`install --host codex`, `/hooks`에서 신뢰)를 `warn`으로 알려 준다. Codex 플러그인(`codex plugin add`)은 설치하지 않는다(ADR-0033 결정 12).
 
 ### 설치 스크립트를 쓸 수 없을 때 (수동)
 
@@ -98,6 +104,14 @@ codex plugin add gatekit@gatekit
 스킬은 `$gatekit-<이름>`으로 부른다. **플러그인 훅은 사용자가 신뢰하기 전까지 돌지 않는다.** Codex 데스크톱 앱은 지금 신뢰를 기록하지 못하므로(openai/codex#47283), 터미널에서 `codex` → `/hooks`로 gatekit 훅을 검토·신뢰한 뒤 새 세션을 연다. 신뢰는 훅 내용 단위라 업그레이드할 때마다 다시 한다. 그 전까지 doctor 8번 축이 `warn`을 낸다.
 
 **Windows의 Codex는 아래 호스트 층 방식을 쓴다.** Codex는 Windows에서 훅 명령을 PowerShell 5.1로 실행하는데, 플러그인 설치 경로가 이 환경에서 쓰기를 막는 것은 아직 관측하지 못했다(`unverified`, ADR-0034). `install --host codex`가 만드는 `.codex/hooks.json`에는 Windows용 `commandWindows`가 들어 있다. 훅 신뢰(`/hooks`)는 똑같이 필요하다. 신뢰하지 않은 훅을 Codex는 아무 메시지 없이 건너뛴다.
+
+Windows에서 Codex를 처음부터 준비하는 순서는 이렇다.
+
+1. PowerShell(관리자 아님)에서 위의 Codex 한 줄 설치를 실행한다. 결과표의 `codex-hooks` 줄에 이 PC에 맞는 `install --host codex` 명령이 나온다.
+2. 프로젝트 폴더에서 그 명령을 실행한다. `.codex/hooks.json`, `.agents/skills/gatekit-*`, `AGENTS.md` 관리 블록이 생긴다.
+3. 같은 폴더에서 `codex`를 실행한다(`os error 5`로 멈추면 `codex --no-daemon`). `/hooks`를 입력하고, 새 훅(`[!] … new`)마다 `t`를 눌러 신뢰한다. 이미 신뢰한 훅(`[x]`)에서 Space나 Enter를 누르면 신뢰가 풀리니 주의한다.
+4. `/quit`로 나가 `codex`를 다시 실행한다. 신뢰는 새 세션부터 적용된다.
+5. gatekit을 업데이트하면 2~4를 다시 한다. 훅 내용이 바뀌면 신뢰도 새로 해야 한다.
 
 예전 방식(프로젝트마다 호스트 층 생성)도 계속 동작한다.
 

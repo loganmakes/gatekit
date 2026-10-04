@@ -1,6 +1,6 @@
 # gatekit
 
-Status: 0.16.12 — early. License: MIT.
+Status: 0.16.13 — early. License: MIT.
 
 > **Name change ahead.** gatekit will be renamed **gatebound** after the
 > current study cohort ends. Nothing changes until then: your installation,
@@ -78,19 +78,30 @@ Restart Claude Code after installing so the hooks in `plugin/hooks/hooks.json`
 are picked up.
 
 **Windows: one line.** In PowerShell (not as administrator), this installs
-whatever is missing — Git, Python, Claude Code — fixes the user PATH, sets
+whatever is missing — Git, Python, Claude Code, Node.js LTS — fixes the user PATH, sets
 `PYTHONUTF8=1` and installs or updates gatekit (ADR-0033):
 
 ```powershell
-irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.12/install/install.ps1 | iex
+irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.13/install/install.ps1 | iex
 ```
 
 Then open a new PowerShell window, run `claude` in your project folder (it
 asks you to log in the first time) and `/gatekit:doctor`. Run the line again
 to update. To see the plan without changing anything:
-`& ([scriptblock]::Create((irm <url>))) -DryRun`. Add `-WithCodex` the same
-way to install the Codex CLI too; its last row stays `warn` until you run
-`install --host codex` in the project and trust the hooks in `/hooks`.
+`& ([scriptblock]::Create((irm <url>))) -DryRun`.
+
+**Windows with Codex: one line.** The same installer, plus the Codex CLI
+(ADR-0033 decision 12):
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.13/install/install.ps1))) -WithCodex
+```
+
+Its last row, `codex-hooks`, stays `warn` until you do two things in each
+project where you use Codex: run the `install --host codex` command that
+row prints, then run `codex` (`codex --no-daemon` if it stops with
+`os error 5`), type `/hooks`, press `t` on each gatekit hook and start a new
+session. Repeat both after each gatekit update.
 
 **Claude desktop app.** Plugins work there too, and hooks run as in the CLI:
 click **+ → Plugins → Add plugin**, add the marketplace
@@ -101,13 +112,17 @@ repository itself as the app's project is not an install: the model can read
 the command files, but no hook is registered, so no gate runs.
 
 The plugin installs globally, so its hooks are loaded in every project you
-open. They stand down in any project that has no `.gatekit/` directory:
-no gate acts and no state is written there. A project becomes gatekit's
+open. They stand down in any project with neither a `.gatekit/` directory
+nor one of gatekit's spec files in `spec/` (an RSpec `spec/` does not count,
+ADR-0036): no gate acts and no state is written there. A project becomes gatekit's
 business the first time you run a `/gatekit:` command in it.
 
 ### Codex (app and CLI)
 
-Codex installs this same plugin from the same marketplace:
+Codex installs this same plugin from the same marketplace. **On Windows,
+use the project layer below instead** (the Codex one-liner above sets it
+up): there Codex runs hooks in PowerShell, and only the generated layer
+carries the PowerShell form; the plugin route is `unverified` (ADR-0034).
 
 ```
 codex plugin marketplace add gatebound/gatebound
@@ -280,7 +295,7 @@ defaults.
 
 ## Status
 
-**0.16.12 — early.** The core gate/ledger/contract/approval kernel, worker
+**0.16.13 — early.** The core gate/ledger/contract/approval kernel, worker
 dispatch (host or a different-model worker), Codex evaluator support, and
 the CI enforcement tooling are all in place; expect rough edges. See
 `CHANGELOG.md` for what shipped and `docs/decisions/` for the architectural

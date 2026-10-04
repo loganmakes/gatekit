@@ -79,7 +79,7 @@ plugin itself.
       `claude plugin install gatekit@gatekit` on a first install;
       `claude plugin marketplace update gatekit` and
       `claude plugin update gatekit@gatekit` when gatekit is already there.
-   9. **Node.js LTS only with `-WithNode`**, through
+   9. **Node.js LTS only with `-WithNode`** (by default since decision 13), through
       `winget install OpenJS.NodeJS.LTS --source winget
       --accept-source-agreements --accept-package-agreements`, and
       `C:\Program Files\nodejs` plus `$env:APPDATA\npm` on the user PATH when
@@ -202,6 +202,48 @@ plugin itself.
     look installed while adding nothing. The tests plan each row against
     stubbed machines (`codex` present, `npm.cmd` present, neither) and pin
     that no row mentions `codex plugin`.
+
+    **Seen on a second PC (2026-10-05).** A Windows PC with Git, an Anaconda
+    Python 3.12, Claude Code and gatekit 0.16.10 but no Node.js and no
+    Codex ran the v0.16.12 line with `-WithCodex`: `-DryRun` planned Node
+    and named the missing `npm.cmd`; the real run installed Node.js v24.19.0
+    (appending `C:\Program Files\nodejs` and `%APPDATA%\npm` to the user
+    PATH), Codex CLI 0.160.0 and gatekit 0.16.12, and ended `warn` on
+    `codex-hooks` alone. The printed `install --host codex` wrote 22 files
+    in the project; after `/hooks` trust, an `apply_patch` and a shell
+    `Set-Content` into `src/` were both denied before approval and neither
+    file existed afterwards.
+
+    **Amendment: the execution policy.** The same run reported `codex` `ok`,
+    yet typing `codex --version` in a new window failed with "running
+    scripts is disabled on this system" for `%APPDATA%\npm\codex.ps1`:
+    npm writes `codex.ps1` beside `codex.cmd`, PowerShell prefers the
+    `.ps1`, and the PC's policy was the client default, `Restricted`. The
+    installer had run the `.cmd`. The owner fixed it with
+    `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`.
+    The `codex` row now reads the policy a **new** window gets — the first
+    defined of MachinePolicy, UserPolicy, CurrentUser, LocalMachine, else
+    `Restricted`; never the Process scope, which
+    `powershell -ExecutionPolicy Bypass -File install.ps1` sets for itself
+    only — and when it is `Restricted` or `AllSigned` the row is `warn`
+    (not `ok`), naming the policy, that one-line fix and `codex.cmd` as the
+    alternative; a planned or new-window row carries the same note. The
+    installer never changes the policy: it is a security setting the user
+    owns. The closing "next steps" line now says to run the
+    `install --host codex` command from the `codex-hooks` row (the second
+    PC's user typed `codex-hooks` as a command).
+
+13. **Node.js LTS is installed by default (amendment, 2026-10-05,
+    owner's request).** Step 9 no longer waits for `-WithNode`: the plain
+    `irm … | iex` line checks for `node` and, when it is missing, installs
+    it the same way (winget with the agreement flags, `C:\Program
+    Files\nodejs` and `$env:APPDATA\npm` appended to the user PATH when
+    missing). The study builds web apps, so "only web projects need it"
+    left most participants one flag short, and Node from a PowerShell window
+    is exactly the step the Context table lists as failing through Claude's
+    `!` (`0x8a150042`). `-WithNode` is still accepted, so instructions that
+    pass it keep working; it changes nothing. `-WithCodex` no longer needs to
+    imply it. The `node` row joins every report (`ok`/`skip` when present).
 
 ## Consequences
 

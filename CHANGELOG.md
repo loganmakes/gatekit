@@ -4,6 +4,48 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.16.13 — 2026-10-05
+
+A gatekit project's gates no longer reach into unrelated projects with a
+`spec/` directory (ADR-0036), and the Windows installer installs Node.js by
+default and tells the truth about `codex` under PowerShell's execution
+policy (ADR-0033 decisions 12 and 13). The `-WithCodex` line was run on a
+second Windows PC with no Node.js and no Codex: everything installed, and
+after `/hooks` trust an `apply_patch` and a shell `Set-Content` into `src/`
+were denied before approval.
+
+### Fixed
+
+- **An RSpec project was blocked as if it were a gatekit project.** Rule
+  (a), spec before code, switched on whenever a `spec/` directory existed,
+  so in a project gatekit had never touched a `Write` or a Bash redirect
+  into `app/` was denied "until spec/05-gate.md is approved". It now needs
+  one of gatekit's spec files in `spec/` (the set `spec validate` judges,
+  `spec-kit/heading-map.json`), in the Write, Bash and PowerShell gates
+  alike. ARCHITECTURE §3 and both READMEs now say what each gate keys on;
+  they claimed every gate stood down without `.gatekit/`.
+- **The installer said `codex` was `ok` when typing `codex` failed.** npm
+  writes `codex.ps1` beside `codex.cmd`, PowerShell prefers the `.ps1`, and
+  the client default policy `Restricted` refuses it; the installer had run
+  the `.cmd`. The `codex` row now reads the policy a new window gets (never
+  the Process scope) and is `warn` under `Restricted` or `AllSigned`, naming
+  `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` and
+  `codex.cmd`. The installer never changes the policy.
+
+### Changed
+
+- **Node.js LTS is installed by default** when missing; `-WithNode` is
+  still accepted and changes nothing.
+- The installer's last next-step line names the `install --host codex`
+  command in the `codex-hooks` row; a user had typed `codex-hooks` as a
+  command.
+
+### Docs
+
+- README and README.ko show the Windows-with-Codex one-liner and the two
+  per-project steps; the manual adds a Codex-on-Windows walkthrough. Both
+  pin the installer to v0.16.13.
+
 ## 0.16.12 — 2026-10-05
 
 The gates run under Codex on Windows, and the installer can add Codex

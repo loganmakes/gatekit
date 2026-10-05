@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="960" viewBox="0 0 1440 960" font-family="-apple-system, BlinkMacSystemFont, &quot;Apple SD Gothic Neo&quot;, &quot;Noto Sans KR&quot;, &quot;Malgun Gothic&quot;, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1312" viewBox="0 0 1440 1312" font-family="-apple-system, BlinkMacSystemFont, &quot;Apple SD Gothic Neo&quot;, &quot;Noto Sans KR&quot;, &quot;Malgun Gothic&quot;, sans-serif">
 
-  <rect x="0" y="0" width="1440" height="960" fill="#FBF9F5"/>
+  <rect x="0" y="0" width="1440" height="1312" fill="#FBF9F5"/>
 
   <!-- ===== Title ===== -->
   <text x="72" y="72" font-size="34" font-weight="700" fill="#12312E">4상태 판정 어휘</text>
@@ -56,8 +56,8 @@
     <text x="1126" y="208" font-size="24" font-weight="700" fill="#2F3A45" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">unverified</text>
     <line x1="1080" y1="230" x2="1344" y2="230" stroke="#D5DAE0" stroke-width="1.5"/>
     <text x="1080" y="258" font-size="16" font-weight="700" fill="#12312E">검사하지 않았다</text>
-    <text x="1080" y="290" font-size="13.5" fill="#5A6672">타임아웃, 예산 소진, 실행 불가.</text>
-    <text x="1080" y="310" font-size="13.5" fill="#5A6672">결과를 모르는 상태 그 자체다.</text>
+    <text x="1080" y="290" font-size="13.5" fill="#5A6672">판정 전에 멈췄거나, 실행했어도</text>
+    <text x="1080" y="310" font-size="13.5" fill="#5A6672">증명한 것이 없다. 원인은 아래.</text>
   </g>
 
   <!-- ===== The core rule ===== -->
@@ -100,68 +100,105 @@
 
   <text x="744" y="522" font-size="12.5" fill="#4A443B">네 번째 상태가 그 반올림을 없앤다. 이게 없으면 타임아웃 한 번으로 미검증 코드가 "완료"로 보고된다.</text>
 
-  <!-- ===== Real example ===== -->
-  <text x="72" y="616" font-size="20" font-weight="700" fill="#12312E">실제 사례 — Quicknote 6단계 verify</text>
-  <text x="72" y="642" font-size="14.5" fill="#6B6459">독립 평가자가 기준 8개를 실행했다. 집계 판정은 ok 가 아니라 unverified 였다.</text>
+  <!-- ===== Where unverified comes from ===== -->
+  <text x="72" y="616" font-size="20" fill="#12312E" font-weight="700">unverified 가 나오는 곳</text>
+  <text x="72" y="642" font-size="14.5" fill="#6B6459">두 갈래다. 기준 하나가 근거 없이 끝나거나, 계약을 믿을 수 없어 기준을 하나도 돌리지 않는다.</text>
+  <rect x="72" y="664" width="640" height="340" rx="12" fill="#FFFFFF" stroke="#4A5764" stroke-width="1.8"/>
+  <rect x="72" y="664" width="640" height="8" rx="4" fill="#4A5764"/>
+  <text x="96" y="700" font-size="16" fill="#12312E" font-weight="700">기준 하나가 unverified</text>
+  <text x="96" y="722" font-size="13" fill="#6B6459">판정할 근거 없이 끝났다 — 못 돌았거나, 돌았어도 증명한 것이 없다</text>
+  <line x1="96" y1="740" x2="688" y2="740" stroke="#EDE7DC" stroke-width="1.2"/>
+  <rect x="96" y="750" width="252" height="28" rx="6" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.2"/>
+  <text x="108" y="769" font-size="12" fill="#2F3A45" font-weight="600" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">timeout after Ns</text>
+  <text x="364" y="761" font-size="14" fill="#12312E" font-weight="700">타임아웃</text>
+  <text x="364" y="780" font-size="12.5" fill="#5A6672">기준이 timeout_s 안에 끝나지 않았다</text>
+  <line x1="96" y1="790" x2="688" y2="790" stroke="#EDE7DC" stroke-width="1.2"/>
+  <rect x="96" y="800" width="252" height="28" rx="6" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.2"/>
+  <text x="108" y="819" font-size="12" fill="#2F3A45" font-weight="600" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">budget exhausted</text>
+  <text x="364" y="811" font-size="14" fill="#12312E" font-weight="700">예산 소진</text>
+  <text x="364" y="830" font-size="12.5" fill="#5A6672">전체 예산(기본 45초, 최대 600초)이 바닥났다</text>
+  <line x1="96" y1="840" x2="688" y2="840" stroke="#EDE7DC" stroke-width="1.2"/>
+  <rect x="96" y="850" width="252" height="28" rx="6" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.2"/>
+  <text x="108" y="869" font-size="12" fill="#2F3A45" font-weight="600" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">could not execute</text>
+  <text x="364" y="861" font-size="14" fill="#12312E" font-weight="700">실행 불가</text>
+  <text x="364" y="880" font-size="12.5" fill="#5A6672">프로그램 없음, 권한 없음, 잘못된 argv</text>
+  <line x1="96" y1="890" x2="688" y2="890" stroke="#EDE7DC" stroke-width="1.2"/>
+  <rect x="96" y="900" width="252" height="28" rx="6" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.2"/>
+  <text x="108" y="919" font-size="12" fill="#2F3A45" font-weight="600" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">ran no tests · all tests skipped</text>
+  <text x="364" y="911" font-size="14" fill="#12312E" font-weight="700">테스트 0개, 또는 전부 skip (ADR-0022)</text>
+  <text x="364" y="930" font-size="12.5" fill="#5A6672">러너가 성공해도 통과한 테스트가 없다</text>
+  <line x1="96" y1="940" x2="688" y2="940" stroke="#EDE7DC" stroke-width="1.2"/>
+  <rect x="96" y="950" width="252" height="28" rx="6" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.2"/>
+  <text x="108" y="969" font-size="12" fill="#2F3A45" font-weight="600" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">grading file changed</text>
+  <text x="364" y="961" font-size="14" fill="#12312E" font-weight="700">채점 파일이 승인 뒤 바뀜 (ADR-0023)</text>
+  <text x="364" y="980" font-size="12.5" fill="#5A6672">통과했어도 ok 를 보류한다. 재승인 또는 되돌리기</text>
+  <rect x="728" y="664" width="640" height="340" rx="12" fill="#FFFFFF" stroke="#4A5764" stroke-width="1.8"/>
+  <rect x="728" y="664" width="640" height="8" rx="4" fill="#4A5764"/>
+  <text x="752" y="700" font-size="16" fill="#12312E" font-weight="700">기준을 돌리기 전에 전체가 unverified</text>
+  <text x="752" y="722" font-size="13" fill="#6B6459">계약을 믿을 수 없으니 어떤 기준도 실행하지 않는다</text>
+  <line x1="752" y1="740" x2="1344" y2="740" stroke="#EDE7DC" stroke-width="1.2"/>
+  <rect x="752" y="750" width="216" height="28" rx="6" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.2"/>
+  <text x="764" y="769" font-size="12" fill="#2F3A45" font-weight="600" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">contract_stale</text>
+  <text x="984" y="761" font-size="14" fill="#12312E" font-weight="700">계약이 낡았다</text>
+  <text x="984" y="780" font-size="12.5" fill="#5A6672">05-gate.md 나 설계 입력이 derive 뒤 바뀌었다</text>
+  <line x1="752" y1="790" x2="1344" y2="790" stroke="#EDE7DC" stroke-width="1.2"/>
+  <rect x="752" y="800" width="216" height="28" rx="6" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.2"/>
+  <text x="764" y="819" font-size="12" fill="#2F3A45" font-weight="600" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">gate_not_approved</text>
+  <text x="984" y="811" font-size="14" fill="#12312E" font-weight="700">게이트 미승인 (ADR-0027)</text>
+  <text x="984" y="830" font-size="12.5" fill="#5A6672">05-gate.md 승인이 없거나, 승인 뒤 바뀌었다</text>
+  <line x1="752" y1="840" x2="1344" y2="840" stroke="#EDE7DC" stroke-width="1.2"/>
+  <rect x="752" y="850" width="216" height="28" rx="6" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.2"/>
+  <text x="764" y="869" font-size="12" fill="#2F3A45" font-weight="600" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">grading_unapproved</text>
+  <text x="984" y="861" font-size="14" fill="#12312E" font-weight="700">채점 파일 재승인 없음 (ADR-0023)</text>
+  <text x="984" y="880" font-size="12.5" fill="#5A6672">바뀐 채점 파일로 derive 만 다시 했다</text>
+  <line x1="752" y1="890" x2="1344" y2="890" stroke="#EDE7DC" stroke-width="1.2"/>
+  <rect x="752" y="900" width="216" height="28" rx="6" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.2"/>
+  <text x="764" y="919" font-size="12" fill="#2F3A45" font-weight="600" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">contract_mismatch</text>
+  <text x="984" y="911" font-size="14" fill="#12312E" font-weight="700">계약 불일치 (ADR-0027)</text>
+  <text x="984" y="930" font-size="12.5" fill="#5A6672">contract.json 이 05-gate.md 와 다르다</text>
+  <line x1="752" y1="940" x2="1344" y2="940" stroke="#EDE7DC" stroke-width="1.2"/>
+  <rect x="752" y="950" width="216" height="28" rx="6" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.2"/>
+  <text x="764" y="969" font-size="12" fill="#2F3A45" font-weight="600" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">contract_busy</text>
+  <text x="984" y="961" font-size="14" fill="#12312E" font-weight="700">다른 실행이 잠금 중 (ADR-0031)</text>
+  <text x="984" y="980" font-size="12.5" fill="#5A6672">다른 contract run 이 30초 넘게 잠금을 쥐고 있다</text>
 
-  <!-- criteria bar -->
-  <rect x="72" y="664" width="640" height="52" rx="8" fill="#FFFFFF" stroke="#DCD5C8" stroke-width="1.5"/>
-  <text x="96" y="696" font-size="14" fill="#6B6459">기준 8개</text>
-
-  <rect x="176" y="676" width="42" height="28" rx="4" fill="#1E7A4C"/>
-  <rect x="222" y="676" width="42" height="28" rx="4" fill="#1E7A4C"/>
-  <rect x="268" y="676" width="42" height="28" rx="4" fill="#1E7A4C"/>
-  <rect x="314" y="676" width="42" height="28" rx="4" fill="#1E7A4C"/>
-  <rect x="360" y="676" width="42" height="28" rx="4" fill="#1E7A4C"/>
-  <rect x="406" y="676" width="42" height="28" rx="4" fill="#1E7A4C"/>
-  <rect x="452" y="676" width="42" height="28" rx="4" fill="#4A5764"/>
-  <rect x="498" y="676" width="42" height="28" rx="4" fill="#4A5764"/>
-
-  <text x="560" y="690" font-size="13" fill="#1E7A4C">6 × ok</text>
-  <text x="560" y="708" font-size="13" fill="#2F3A45">2 × unverified</text>
-
-  <!-- aggregate -->
-  <path d="M 728 690 L 760 690" stroke="#C9C1B2" stroke-width="2.5"/>
-  <path d="M 760 690 L 750 684 L 750 696 Z" fill="#C9C1B2"/>
-  <rect x="772" y="664" width="264" height="52" rx="8" fill="#4A5764"/>
-  <text x="796" y="686" font-size="12.5" fill="#B9C3CD">집계 판정</text>
-  <text x="796" y="706" font-size="17" font-weight="700" fill="#FFFFFF" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">unverified</text>
-
-  <text x="1060" y="682" font-size="13" fill="#6B6459">집계 규칙 — 하나라도 fail 이면 fail,</text>
-  <text x="1060" y="702" font-size="13" fill="#6B6459">아니면 하나라도 unverified 면 unverified,</text>
-  <text x="1060" y="722" font-size="13" fill="#6B6459">아니면 warn, 그 외 ok.</text>
-
-  <!-- ===== Table of the two timed-out criteria ===== -->
-  <rect x="72" y="744" width="800" height="140" rx="10" fill="#FFFFFF" stroke="#4A5764" stroke-width="1.8"/>
-  <line x1="72" y1="782" x2="872" y2="782" stroke="#D5DAE0" stroke-width="1.5"/>
-  <line x1="72" y1="832" x2="872" y2="832" stroke="#EDE7DC" stroke-width="1.2"/>
-
-  <text x="96" y="772" font-size="13" font-weight="700" fill="#6B6459">기준</text>
-  <text x="452" y="772" font-size="13" font-weight="700" fill="#6B6459">판정</text>
-  <text x="596" y="772" font-size="13" font-weight="700" fill="#6B6459">실측</text>
-  <text x="756" y="772" font-size="13" font-weight="700" fill="#6B6459">당시 예산</text>
-
-  <text x="96" y="812" font-size="13.5" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">task-note-update-works</text>
-  <rect x="452" y="796" width="104" height="24" rx="5" fill="#4A5764"/>
-  <text x="504" y="813" font-size="12.5" font-weight="700" fill="#FFFFFF" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">unverified</text>
-  <text x="596" y="812" font-size="13.5" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">6.61~6.65s</text>
-  <text x="756" y="812" font-size="13.5" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">5s</text>
-
-  <text x="96" y="862" font-size="13.5" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">task-full-suite-gate-works</text>
-  <rect x="452" y="846" width="104" height="24" rx="5" fill="#4A5764"/>
-  <text x="504" y="863" font-size="12.5" font-weight="700" fill="#FFFFFF" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">unverified</text>
-  <text x="596" y="862" font-size="13.5" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">24.5s</text>
-  <text x="756" y="862" font-size="13.5" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">10s</text>
-
-  <!-- ===== The point ===== -->
-  <rect x="896" y="744" width="472" height="140" rx="10" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.8"/>
-  <text x="924" y="778" font-size="16" font-weight="700" fill="#12312E">구현 결함이 아니었다</text>
-  <text x="924" y="806" font-size="13.5" fill="#3E4A56">두 테스트 모두 손으로 돌리면 통과했다.</text>
-  <text x="924" y="828" font-size="13.5" fill="#3E4A56">예산이 실측보다 작았을 뿐이다.</text>
-  <text x="924" y="858" font-size="13.5" font-weight="700" fill="#2F3A45">그래도 ok 로 올리지 않았다. 검사가 끝나지</text>
-  <text x="924" y="878" font-size="13.5" font-weight="700" fill="#2F3A45">못했으므로 unverified 다.</text>
-
-  <!-- ===== Footer ===== -->
-  <text x="72" y="924" font-size="13.5" fill="#6B6459">이후 실측 49초를 근거로 gatekit-budget 을 180초로 선언하고 재승인하자 8/8 ok, 총 49.4초가 나왔다. 추측이 아니라 측정 후 선언이다.</text>
+  <!-- ===== Aggregation ===== -->
+  <text x="72" y="1052" font-size="20" fill="#12312E" font-weight="700">집계 — 가장 심각한 판정이 이긴다</text>
+  <rect x="72" y="1072" width="640" height="204" rx="12" fill="#FFFFFF" stroke="#DCD5C8" stroke-width="1.5"/>
+  <rect x="96" y="1092" width="76" height="34" rx="6" fill="#B3382C"/>
+  <text x="134" y="1115" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">fail</text>
+  <text x="186" y="1116" font-size="18" fill="#6B6459" font-weight="700" text-anchor="middle">&gt;</text>
+  <rect x="200" y="1092" width="132" height="34" rx="6" fill="#4A5764"/>
+  <text x="266" y="1115" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">unverified</text>
+  <text x="346" y="1116" font-size="18" fill="#6B6459" font-weight="700" text-anchor="middle">&gt;</text>
+  <rect x="360" y="1092" width="76" height="34" rx="6" fill="#8A6410"/>
+  <text x="398" y="1115" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">warn</text>
+  <text x="450" y="1116" font-size="18" fill="#6B6459" font-weight="700" text-anchor="middle">&gt;</text>
+  <rect x="464" y="1092" width="60" height="34" rx="6" fill="#1E7A4C"/>
+  <text x="494" y="1115" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">ok</text>
+  <text x="96" y="1158" font-size="13.5" fill="#4A443B">하나라도 fail 이면 fail, 아니면 하나라도 unverified 면 unverified,</text>
+  <text x="96" y="1180" font-size="13.5" fill="#4A443B">아니면 하나라도 warn 이면 warn, 그 외 ok.</text>
+  <line x1="96" y1="1196" x2="688" y2="1196" stroke="#EDE7DC" stroke-width="1.2"/>
+  <text x="96" y="1218" font-size="13" fill="#2F3A45">· 판정한 기준이 하나도 없으면 ok 가 아니라 unverified 다.</text>
+  <text x="96" y="1242" font-size="13" fill="#2F3A45">· 실행한 기준이 모두 ok 여도 Stop 예산으로 미룬 기준이 있으면</text>
+  <text x="108" y="1262" font-size="13" fill="#2F3A45">unverified 다 (deferred_by_stop_budget, ADR-0024).</text>
+  <rect x="728" y="1072" width="640" height="204" rx="12" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.8"/>
+  <text x="752" y="1104" font-size="16" fill="#12312E" font-weight="700">실제 사례 — Quicknote 6단계 verify</text>
+  <text x="752" y="1128" font-size="13" fill="#3E4A56">독립 평가자가 기준 8개를 실행했다.</text>
+  <rect x="752" y="1144" width="34" height="26" rx="4" fill="#1E7A4C"/>
+  <rect x="790" y="1144" width="34" height="26" rx="4" fill="#1E7A4C"/>
+  <rect x="828" y="1144" width="34" height="26" rx="4" fill="#1E7A4C"/>
+  <rect x="866" y="1144" width="34" height="26" rx="4" fill="#1E7A4C"/>
+  <rect x="904" y="1144" width="34" height="26" rx="4" fill="#1E7A4C"/>
+  <rect x="942" y="1144" width="34" height="26" rx="4" fill="#1E7A4C"/>
+  <rect x="980" y="1144" width="34" height="26" rx="4" fill="#4A5764"/>
+  <rect x="1018" y="1144" width="34" height="26" rx="4" fill="#4A5764"/>
+  <path d="M 1064 1157 L 1090 1157" stroke="#9AA4AE" stroke-width="2.5"/>
+  <path d="M 1098 1157 L 1088 1151 L 1088 1163 Z" fill="#9AA4AE"/>
+  <rect x="1106" y="1140" width="140" height="34" rx="6" fill="#4A5764"/>
+  <text x="1176" y="1162" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">unverified</text>
+  <text x="752" y="1194" font-size="12.5" fill="#2F3A45">6 × ok · 2 × unverified (타임아웃)</text>
+  <text x="752" y="1226" font-size="13" fill="#3E4A56">구현 결함이 아니었다. 예산 5s·10s 가 실측 6.6s·24.5s 보다 작았다.</text>
+  <text x="752" y="1250" font-size="13" fill="#2F3A45" font-weight="700">실측 49초를 근거로 gatekit-budget 180초 선언·재승인 → 8/8 ok.</text>
 
 </svg>

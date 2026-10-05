@@ -137,7 +137,7 @@ Then **it shows the whole list as a table and asks for approval.** You have one 
 
 **When it blocks**:
 
-- **A task failed** → retry it (`jobs redelegate <task_id>`). The failed gate's output is attached automatically to the next attempt's prompt.
+- **A task failed** → in the default `host` mode, this session fixes the code and runs `jobs complete <task_id>` again; with workers, retry it (`jobs redelegate <task_id>`), and the failed gate's output is attached automatically to the next attempt's prompt.
 - **The gate command itself is wrong** → fix `spec/04-tasks.md`, then, instead of retrying, run `jobs recheck` to re-run only the fixed gates. If the code is already right, it finishes in seconds.
 - **The same task keeps failing** → at 3 in a row (the default), it stops automatically and leaves a diagnosis in `spec/RECOVERY.md`. This counter does not reset when you start a new job, so once you have fixed the cause, reset just that task with `jobs start --force-retry <task_id>`. In the default mode where this session implements the tasks, `jobs complete` also stops at the same limit with exit 3.
 - **The same task failed the same way twice** → it stops with exit 3 even if retries remain. If the gate output is the same (ignoring times, durations and the like), trying again unchanged will not converge: if the gate is wrong, fix it and run `jobs recheck`; if the instructions are wrong, fix the task.

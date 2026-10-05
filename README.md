@@ -77,6 +77,29 @@ that matter into things a hook enforces:
 Restart Claude Code after installing so the hooks in `plugin/hooks/hooks.json`
 are picked up.
 
+**macOS and Linux: three lines.** In a terminal:
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+claude plugin marketplace add gatebound/gatebound
+claude plugin install gatekit@gatekit
+```
+
+The first line is Claude Code's official installer; the other two add
+gatekit. You need `git` and Python 3.9 or newer as `python3`: on macOS,
+`xcode-select --install` provides both (run it if `git --version` asks);
+on Linux they are usually there already (Debian/Ubuntu:
+`sudo apt install -y git python3`). Then open a new terminal, run `claude`
+in your project folder and `/gatekit:doctor`. To update:
+`claude plugin marketplace update gatekit && claude plugin update gatekit@gatekit`.
+For Codex as well, install Node.js (nodejs.org, or `brew install node`),
+then `npm install -g @openai/codex` and follow [Codex](#codex-app-and-cli)
+below. No installer script is offered here: none of the Windows failures it
+handles (a placeholder Python, a stale PATH, cp949, hooks run in
+PowerShell) occur on these systems. The 2026-10-05 Windows checks did not
+cover them, so run the gate check once: a code write before
+`spec/05-gate.md` is approved must be denied.
+
 **Windows: one line.** In PowerShell (not as administrator), this installs
 whatever is missing — Git, Python, Claude Code, Node.js LTS — fixes the user PATH, sets
 `PYTHONUTF8=1` and installs or updates gatekit (ADR-0033):

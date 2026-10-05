@@ -72,6 +72,28 @@ gatekit은 [Claude Code](https://claude.com/claude-code)에서 AI 보조 개발�
 설치 후 Claude Code를 재시작해야 `plugin/hooks/hooks.json`의 훅이
 반영됩니다.
 
+**macOS·Linux: 세 줄 설치.** 터미널에 넣으세요.
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+claude plugin marketplace add gatebound/gatebound
+claude plugin install gatekit@gatekit
+```
+
+첫 줄은 Claude Code 공식 설치기이고, 나머지 두 줄이 gatekit을 설치합니다.
+`git`과 `python3`(3.9 이상)가 필요합니다. macOS는 `xcode-select --install`이
+둘 다 설치합니다(`git --version`이 설치를 물으면 그때 실행). Linux는 대개 이미
+있습니다(Debian/Ubuntu: `sudo apt install -y git python3`). 그다음 터미널을
+새로 열고 프로젝트 폴더에서 `claude`를 실행해 `/gatekit:doctor`를 돌리세요.
+업데이트는 `claude plugin marketplace update gatekit && claude plugin update gatekit@gatekit`.
+Codex도 쓰려면 Node.js(nodejs.org 또는 `brew install node`)를 설치한 뒤
+`npm install -g @openai/codex`를 하고 아래 [Codex](#codex-앱과-cli) 절을
+따르세요. 이 시스템들에는 설치 스크립트를 두지 않습니다. 스크립트가 다루는
+Windows 문제(가짜 Python, 갱신 안 된 PATH, cp949, PowerShell로 실행되는 훅)가
+여기서는 생기지 않기 때문입니다. 2026-10-05 Windows 실측은 이 시스템들을
+다루지 않았으니, 게이트 점검을 한 번 해 보세요. `spec/05-gate.md` 승인 전의
+코드 쓰기가 막혀야 합니다.
+
 **Windows: 한 줄 설치.** PowerShell(관리자 권한 아님)에 아래 한 줄을 넣으면
 없는 것만 골라 설치합니다. Git, Python, Claude Code, Node.js LTS를 설치하고, 사용자 PATH를
 고치고, `PYTHONUTF8=1`을 설정한 뒤 gatekit을 설치하거나 업데이트합니다(ADR-0033).

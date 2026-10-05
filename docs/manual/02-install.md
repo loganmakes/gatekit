@@ -79,6 +79,22 @@ Codex CLI를 `npm.cmd`로 설치하고, 마지막 `codex-hooks` 줄이 프로젝
 
 이 절차는 소유자의 Windows 10 PC(한글 사용자 폴더, 파이썬 3.9.10)에서 2026-10-04에 밟은 순서다. 설치 전 상태에서는 `claude`가 "인식되지 않는 용어"라고 나오고, 파이썬 없이 `python`을 치면 `Python`만 찍히는 것이 정상이다.
 
+## macOS·Linux에서 처음부터
+
+설치 스크립트 없이 터미널에서 세 줄이면 된다.
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+claude plugin marketplace add gatebound/gatebound
+claude plugin install gatekit@gatekit
+```
+
+첫 줄은 Claude Code 공식 설치기이고, 나머지 두 줄이 gatekit을 설치한다. `git`과 `python3`(3.9 이상)가 필요하다. macOS는 `xcode-select --install`이 둘 다 설치하고(`git --version`이 설치를 물으면 그때 실행), Linux는 대개 이미 있다(Debian/Ubuntu: `sudo apt install -y git python3`). 설치 후 터미널을 새로 열고 프로젝트 폴더에서 `claude` → `/gatekit:doctor`를 돌린다.
+
+Codex도 쓰려면 Node.js(nodejs.org 또는 `brew install node`)를 깔고 `npm install -g @openai/codex`를 한 뒤 아래 "Codex 사용자" 절을 따른다. 훅이 sh로 실행되므로 Windows의 `commandWindows` 같은 조치는 필요 없다.
+
+Windows에 설치 스크립트가 필요했던 이유(Store 자리표시자 Python, 설치 직후 갱신되지 않는 PATH, cp949, PowerShell로 실행되는 훅, `codex.ps1` 실행 정책)는 이 시스템들에 없어서 스크립트를 두지 않는다. 다만 2026-10-05의 Windows 실측은 macOS·Linux를 다루지 않았으니, 설치 후 [프로젝트 초기화](#프로젝트-초기화) 전에 게이트 점검을 한 번 한다. `spec/`에 스펙 파일이 있고 승인 전인 상태에서 코드 쓰기가 막혀야 한다.
+
 ## 설치
 
 ```bash

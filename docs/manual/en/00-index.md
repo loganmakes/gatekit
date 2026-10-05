@@ -14,7 +14,7 @@ gatekit is a Claude Code plugin. It turns the rules you used to write as prose i
 | `04-pipeline.md` | The 7-stage pipeline flow chart and each stage's inputs, outputs and gates |
 | `05-commands.md` | Reference for the 10 commands |
 | `06-spec-files.md` | Required sections of the spec documents and the fence JSON schemas |
-| `07-gates.md` | What each of the 8 hook gates blocks |
+| `07-gates.md` | What each of the 9 hook gates blocks |
 | `08-cli.md` | CLI reference, subcommands and exit codes |
 | `09-worked-example.md` | The Quicknote worked example — from one sentence to done |
 | `10-troubleshooting.md` | Symptom → cause → fix table |

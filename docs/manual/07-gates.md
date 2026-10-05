@@ -1,14 +1,15 @@
 # 훅 게이트
 
-`plugin/hooks/hooks.json`에 스크립트 8개가 등록된다. 이 파일은 Claude Code가 자동으로 읽으며 `plugin.json`에 나열하지 않는다. 중복 참조는 플러그인 로드를 실패시킨다. 이와 별개로, `tokens` 게이트는 훅이 아니라 `spec/04-tasks.md`의 태스크가 선언하는 태스크 게이트다(아래 별도 절 참고).
+`plugin/hooks/hooks.json`에 스크립트 9개가 등록된다. 이 파일은 Claude Code가 자동으로 읽으며 `plugin.json`에 나열하지 않는다. 중복 참조는 플러그인 로드를 실패시킨다. 이와 별개로, `tokens` 게이트는 훅이 아니라 `spec/04-tasks.md`의 태스크가 선언하는 태스크 게이트다(아래 별도 절 참고).
 
 | 게이트 | 이벤트 | 대상 도구 | 차단하는가 |
 |---|---|---|---|
 | prompt | `UserPromptSubmit` | 없음 | 아니오 |
-| write | `PreToolUse` | `Write`, `Edit`, `MultiEdit`, `NotebookEdit` | 예 |
+| write | `PreToolUse` | `Write`, `Edit`, `MultiEdit`, `NotebookEdit`, `apply_patch` | 예 |
 | bash | `PreToolUse` | `Bash` | 예 |
 | powershell | `PreToolUse` | `PowerShell` | 예 |
-| spawn | `PreToolUse` | `Agent`, `Task` | 예 |
+| skill | `PreToolUse` | `Skill` | 아니오 (Stop 게이트를 켜기만 한다) |
+| spawn | `PreToolUse` | `Agent`, `Task`, `collaborationspawn_agent` | 예 |
 | question | `PostToolUse` | `AskUserQuestion`, `Write`/`Edit`/`MultiEdit`/`NotebookEdit` | 아니오 (채널이 없다) |
 | compact | `PreCompact` | 없음 | 아니오 |
 | stop | `Stop` | 없음 | 예 (최대 3회) |
@@ -102,11 +103,23 @@ README*
 
 **워커는 승인하지 않는다**: `GATEKIT_TASK_ID`가 있으면 `Remove-Item Env:GATEKIT_TASK_ID; python …\gatekit.py approve …`, `& python "$env:CLAUDE_PLUGIN_ROOT\bin\gatekit.py" approve …`, `pwsh -Command "…"`, `Start-Process python -ArgumentList …` 안의 `approve`를 찾아 거부한다. `approve check`와 `approve list`는 허용한다.
 
-**한계**: 이름으로 호출되는 프로그램과 스크립트(`.\build.ps1`, `npm run build`)가 무엇을 쓰는지는 보지 않는다. 실행 시점에 조립되는 경로(`-join`, `-f`, `[char]` 코드, Base64)는 승인 전에는 거부되지만 승인 후에는 `.gatekit`을 적지 않는 한 허용된다. 위 목록 밖의 COM·.NET·리플렉션 경로, 모듈이 제공하는 cmdlet도 마찬가지다. 스킬의 `` !`명령` `` 줄은 PreToolUse 훅을 거치지 않으므로 `Skill` 도구에는 매처를 두지 않는다. Codex는 모든 셸 호출을 `Bash`로 보고하므로 Codex 레이어에는 대응 훅이 없다. 실제 Windows 세션에서의 동작은 아직 관측되지 않았다(테스트는 파싱만 검증한다). 근거는 `docs/decisions/ADR-0028-powershell-tool-gate.md`.
+**한계**: 이름으로 호출되는 프로그램과 스크립트(`.\build.ps1`, `npm run build`)가 무엇을 쓰는지는 보지 않는다. 실행 시점에 조립되는 경로(`-join`, `-f`, `[char]` 코드, Base64)는 승인 전에는 거부되지만 승인 후에는 `.gatekit`을 적지 않는 한 허용된다. 위 목록 밖의 COM·.NET·리플렉션 경로, 모듈이 제공하는 cmdlet도 마찬가지다. 스킬의 `` !`명령` `` 줄은 PreToolUse 훅을 거치지 않아 이 게이트가 보지 못한다(`Skill` 도구의 매처는 아래 skill 게이트용이며 명령을 검사하지 않는다). Codex는 모든 셸 호출을 `Bash`로 보고하므로 Codex 레이어에는 대응 훅이 없다. 실제 Windows 세션에서의 동작은 아직 관측되지 않았다(테스트는 파싱만 검증한다). 근거는 `docs/decisions/ADR-0028-powershell-tool-gate.md`.
+
+## skill 게이트
+
+**언제**: `Skill` 도구로 스킬을 불러오기 직전.
+
+**하는 일**: 불리는 스킬이 gatekit의 `build`나 `verify`(커맨드 `gatekit:build`든 트리거 스킬 `gatekit:gatekit-build`든)이면, 그 명령을 직접 입력했을 때와 똑같이 세션 원장의 `active_pipeline`을 기록하고 Stop 게이트를 다시 켠다(ADR-0032). 다른 스킬이면 아무것도 하지 않는다. `.gatekit/`이 없는 프로젝트에서도 아무것도 하지 않는다.
+
+**왜 필요한가**: Stop 게이트는 `active_pipeline`이 `build`나 `verify`일 때만 계약을 실행하는데, 원래 이 값은 prompt 게이트만 기록했다. 그래서 같은 명령이 `Skill` 도구로 시작되면 — 모델이 build를 마치고 스스로 `/gatekit:verify`로 이어 가거나, "빌드 시작해줘"에 트리거 스킬이 실행될 때 — Stop 게이트가 잠든 채로 남아 검증 없이 세션이 끝날 수 있었다.
+
+**범위**: 켜기만 한다. 도구 호출로 모델이 게이트의 판정을 시작시킬 수는 있지만, 멈추거나 진행 중인 빌드를 Stop 게이트가 판정하지 않는 파이프라인으로 옮길 수는 없다. 끄고 바꾸는 것은 사용자가 직접 입력한 명령만 한다.
+
+**차단**: 하지 않는다.
 
 ## spawn 게이트
 
-**언제**: `Agent`나 `Task`로 서브에이전트를 띄우기 직전.
+**언제**: `Agent`나 `Task`로 서브에이전트를 띄우기 직전. Codex의 `collaborationspawn_agent`는 훅에 프롬프트를 보여 주지 않으므로 허용하고 `spawn_unscoped`로 기록한다. 그 에이전트의 쓰기도 write·bash 게이트를 똑같이 거친다.
 
 **요구하는 것**: spawn 프롬프트에 `gatekit-scope` 펜스가 있어야 하고, 그 안이 유효한 JSON 객체여야 한다.
 

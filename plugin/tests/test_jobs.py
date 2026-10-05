@@ -1335,6 +1335,9 @@ class TestStop(JobTestCase):
         self.assertIsInstance(running.get("pid"), int)
         job_id = latest()
         result = jobs.stop(self.root, job_id)
+        # A worker listed as skipped was never ended; say so instead of
+        # timing out on the join below.
+        self.assertIn("write-note", result["signalled"], result)
         thread.join(timeout=15)
         self.assertFalse(thread.is_alive())
         self.assertNotIn("error", holder)

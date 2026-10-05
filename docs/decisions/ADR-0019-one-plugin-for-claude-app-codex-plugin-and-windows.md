@@ -94,7 +94,8 @@ enforcement, every hook exits 0 on internal error, the verdict words.
       the existing "could not run" handling still reports it.
    d. `jobs.py` process control branches on `os.name == "nt"`: liveness and
       age through `tasklist`, termination through `taskkill /T /F`. The
-      POSIX path is unchanged.
+      POSIX path is unchanged. (Amended by ADR-0039: liveness and age now
+      come from kernel32; `tasklist` and PowerShell are the fallback.)
    e. The Bash gate normalises MSYS paths (`/c/work/app` → `C:\work\app`)
       before comparing a target with the project root.
    f. CI adds `windows-latest`. Windows support is labelled **preview**

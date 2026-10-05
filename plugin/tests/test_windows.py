@@ -320,14 +320,19 @@ class TestArgvZeroIsResolved(unittest.TestCase):
 
 
 class TestWindowsProcessControl(unittest.TestCase):
-    """3d: on Windows, os.kill(pid, 0) terminates the process; never call it."""
+    """3d: on Windows, os.kill(pid, 0) terminates the process; never call it.
+
+    These cover the fallback the native probe (ADR-0039) hands over to when
+    it cannot answer: tasklist for liveness, PowerShell for age.
+    """
 
     def setUp(self) -> None:
         self.calls = []
         patcher_win = mock.patch.object(jobs, "_IS_WINDOWS", True)
         patcher_kill = mock.patch.object(jobs.os, "kill", side_effect=AssertionError("os.kill on Windows"))
         patcher_run = mock.patch.object(jobs.subprocess, "run", side_effect=self.fake_run)
-        for p in (patcher_win, patcher_kill, patcher_run):
+        patcher_native = mock.patch.object(jobs, "_win_process_info", return_value=None)
+        for p in (patcher_win, patcher_kill, patcher_run, patcher_native):
             p.start()
             self.addCleanup(p.stop)
 
@@ -354,6 +359,141 @@ class TestWindowsProcessControl(unittest.TestCase):
         self.assertTrue(killed)
         self.assertIn("/T", killed[0])
         self.assertIn("4242", killed[0])
+
+
+class TestWindowsNativeProcessInfo(unittest.TestCase):
+    """ADR-0039: liveness and age come from kernel32, with no child process.
+
+    A PowerShell probe took longer than its 10 s limit on a busy runner, so
+    `jobs stop` listed a live worker as `skipped` and never ended it.
+    """
+
+    def setUp(self) -> None:
+        self.calls = []
+        patcher_win = mock.patch.object(jobs, "_IS_WINDOWS", True)
+        patcher_kill = mock.patch.object(jobs.os, "kill", side_effect=AssertionError("os.kill on Windows"))
+        patcher_run = mock.patch.object(jobs.subprocess, "run", side_effect=self.fake_run)
+        for p in (patcher_win, patcher_kill, patcher_run):
+            p.start()
+            self.addCleanup(p.stop)
+
+    def fake_run(self, argv, **kwargs):
+        self.calls.append(list(argv))
+        return subprocess.CompletedProcess(argv, 0, stdout=b"", stderr=b"")
+
+    def test_a_live_process_is_answered_without_spawning_anything(self) -> None:
+        import time as _time
+        with mock.patch.object(jobs, "_win_process_info", return_value=(True, _time.time() - 30.0)):
+            self.assertTrue(jobs._pid_alive(4242))
+            self.assertAlmostEqual(jobs._process_age_s(4242), 30.0, delta=1.0)
+        self.assertEqual(self.calls, [])
+
+    def test_a_dead_process_is_not_alive_and_has_no_age(self) -> None:
+        with mock.patch.object(jobs, "_win_process_info", return_value=(False, None)):
+            self.assertFalse(jobs._pid_alive(4242))
+            self.assertIsNone(jobs._process_age_s(4242))
+        self.assertEqual(self.calls, [])
+
+    def test_a_live_process_without_times_falls_back_to_powershell_for_age(self) -> None:
+        with mock.patch.object(jobs, "_win_process_info", return_value=(True, None)):
+            self.assertTrue(jobs._pid_alive(4242))
+            jobs._process_age_s(4242)
+        self.assertEqual([c[0] for c in self.calls], ["powershell"])
+
+    def test_filetime_converts_to_unix_time(self) -> None:
+        # 1970-01-01T00:00:00Z is 116444736000000000 hundred-nanosecond
+        # intervals after 1601-01-01.
+        value = 116444736000000000
+        self.assertEqual(jobs._filetime_to_epoch(value >> 32, value & 0xFFFFFFFF), 0.0)
+        value += 15 * 10_000_000
+        self.assertAlmostEqual(jobs._filetime_to_epoch(value >> 32, value & 0xFFFFFFFF), 15.0)
+
+    def _fake_kernel32(self, open_result, last_error=0, exit_code=259, times_ok=True):
+        """A stand-in for ctypes.WinDLL("kernel32") driving each branch."""
+        import ctypes
+        calls = {"open": 0, "close": 0}
+
+        def open_process(access, inherit, pid):
+            calls["open"] += 1
+            return open_result
+
+        def exit_code_of(handle, code_ref):
+            code_ref._obj.value = exit_code
+            return 1
+
+        def times_of(handle, created, exited, kernel, user):
+            value = 116444736000000000 + 7 * 10_000_000
+            created._obj.dwHighDateTime, created._obj.dwLowDateTime = value >> 32, value & 0xFFFFFFFF
+            return 1 if times_ok else 0
+
+        def close_handle(handle):
+            calls["close"] += 1
+            return 1
+
+        k32 = mock.Mock()
+        k32.OpenProcess, k32.GetExitCodeProcess = open_process, exit_code_of
+        k32.GetProcessTimes, k32.CloseHandle = times_of, close_handle
+        patches = [mock.patch.object(ctypes, "WinDLL", return_value=k32, create=True),
+                   mock.patch.object(ctypes, "get_last_error", return_value=last_error, create=True)]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        return calls
+
+    def test_no_process_with_the_pid_reads_dead(self) -> None:
+        calls = self._fake_kernel32(open_result=None, last_error=87)
+        self.assertEqual(jobs._win_process_info(4240), (False, None))
+        self.assertEqual(calls["close"], 0)
+
+    def test_access_denied_gives_no_answer(self) -> None:
+        self._fake_kernel32(open_result=None, last_error=5)
+        self.assertIsNone(jobs._win_process_info(4240))
+
+    def test_a_live_process_reports_its_creation_time_and_closes_the_handle(self) -> None:
+        calls = self._fake_kernel32(open_result=1234)
+        self.assertEqual(jobs._win_process_info(4240), (True, 7.0))
+        self.assertEqual(calls["close"], 1)
+
+    def test_an_exited_process_reads_dead_and_closes_the_handle(self) -> None:
+        calls = self._fake_kernel32(open_result=1234, exit_code=1)
+        self.assertEqual(jobs._win_process_info(4240), (False, None))
+        self.assertEqual(calls["close"], 1)
+
+    def test_unreadable_times_leave_alive_without_age(self) -> None:
+        self._fake_kernel32(open_result=1234, times_ok=False)
+        self.assertEqual(jobs._win_process_info(4240), (True, None))
+
+    def test_a_pid_no_windows_process_can_have_gets_no_native_answer(self) -> None:
+        calls = self._fake_kernel32(open_result=1234)
+        for pid in (0, -4, 4243, 2 ** 32 + 4240):
+            self.assertIsNone(jobs._win_process_info(pid), pid)
+        self.assertEqual(calls["open"], 0)
+
+    def test_off_windows_the_native_probe_answers_nothing(self) -> None:
+        if os.name == "nt":
+            self.skipTest("POSIX-only property")
+        self.assertIsNone(jobs._win_process_info(os.getpid()))
+
+
+@unittest.skipUnless(os.name == "nt", "needs real Windows")
+class TestWindowsNativeProcessInfoLive(unittest.TestCase):
+    """The kernel32 probe against real processes on a Windows host."""
+
+    def test_a_running_child_is_alive_with_a_fresh_age_and_dead_after_exit(self) -> None:
+        import time as _time
+        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+        try:
+            info = jobs._win_process_info(child.pid)
+            self.assertIsNotNone(info)
+            alive, created = info
+            self.assertTrue(alive)
+            self.assertIsNotNone(created)
+            self.assertLess(abs((_time.time() - created)), 30.0)
+            self.assertTrue(jobs._pid_alive(child.pid))
+        finally:
+            child.kill()
+            child.wait(timeout=10)
+        self.assertFalse(jobs._pid_alive(child.pid))
 
 
 class TestMsysPaths(unittest.TestCase):

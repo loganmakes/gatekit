@@ -63,7 +63,7 @@ Codex CLI를 `npm.cmd`로 설치하고, 마지막 `codex-hooks` 줄이 프로젝
 4. 플러그인을 설치한다.
 
    ```powershell
-   claude plugin marketplace add https://github.com/LovelyPaul/gatekit
+   claude plugin marketplace add https://github.com/gatebound/gatebound
    claude plugin install gatekit@gatekit
    ```
 

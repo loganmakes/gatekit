@@ -4,6 +4,50 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.16.15 — 2026-10-05
+
+`jobs stop` ends a running worker on a slow Windows machine (ADR-0039),
+doctor checks every registered gate script, and the user manual gets a full
+English edition with its diagrams redrawn from the code.
+
+### Fixed
+
+- **`jobs stop` on Windows could leave the running worker alive.** Liveness
+  and age came from `tasklist` and a PowerShell start-time probe with a 10 s
+  timeout; on a loaded machine the probe gave no answer, the worker was
+  listed `skipped` and kept running while its tasks were recorded `stopped`.
+  `jobs._win_process_info` now asks kernel32 through `ctypes`
+  (`OpenProcess`, `GetExitCodeProcess`, `GetProcessTimes`) with no child
+  process, and falls back to the old probes only when it gives no answer
+  (ADR-0039).
+- **doctor axis 1 did not check `compact.py`.** It was registered in
+  `hooks.json` (ADR-0013) without joining `doctor.GATE_SCRIPTS`, so a
+  missing `compact.py` never failed the axis. A test now derives the gate
+  scripts from `hooks.json` and requires the list to match.
+
+### Docs
+
+- **English manual.** `docs/manual/en/` mirrors all 13 pages;
+  `gate_manual_accuracy` runs the same checks on it and fails when a page
+  exists in one language only. README, README.ko and CONTRIBUTING point at
+  both editions.
+- **Diagrams redrawn from the code, Korean and English.** Pipeline stages
+  0–6 (discover, design, mockup required for UI projects, `build.execution:
+  host` by default, verify's `-visual` verdicts); all nine hook gate scripts
+  with the write gate's three rules and the Stop gate's cap, tiers and
+  stand-down; every route to `unverified`.
+- **Manual caught up with the code.** 07-gates documents the skill gate
+  (ADR-0032) and nine scripts; 03-concepts and 04-pipeline now match rule
+  (a)'s trigger (ADR-0036), `write_scope` enforcement only in worker
+  sessions, the retry limits (ADR-0014, ADR-0021), the state files writable
+  before approval, `contract_busy` (ADR-0031), design's question count and
+  when the Stop gate runs (ADR-0024). Smaller fixes: `jobs recheck` (not
+  `gates recheck`), `/plugin install gatekit@gatekit`, table rows split by
+  an unescaped `||`.
+- First-time setup installs Node.js LTS on every platform; the manual's
+  Windows steps point at `gatebound/gatebound`. The installer pin moves to
+  v0.16.15.
+
 ## 0.16.14 — 2026-10-05
 
 A Codex **plugin** install now runs the gates on Windows (ADR-0038), and

@@ -34,11 +34,12 @@ Codex CLI를 `npm.cmd`로 설치하고, 마지막 `codex-hooks` 줄이 프로젝
 
 `winget`이 없는 오래된 Windows이거나 스크립트 실행이 막힌 환경이면 아래 순서를 **PowerShell**에서 그대로 따른다(관리자 권한은 필요 없다. 관리자로 열면 작업 폴더가 `system32`로 잡혀 헷갈리기만 한다).
 
-1. 세 가지를 설치한다. 이미 있는 것은 `winget`이 그렇다고 알려준다.
+1. 네 가지를 설치한다. 이미 있는 것은 `winget`이 그렇다고 알려준다. Node.js는 gatekit 자체에는 필요 없지만 스터디에서 웹 앱을 만들고 배포할 때 쓴다(설치 스크립트도 기본으로 설치한다, ADR-0033 결정 13).
 
    ```powershell
    winget install Git.Git
    winget install Python.Python.3.12
+   winget install OpenJS.NodeJS.LTS
    irm https://claude.ai/install.ps1 | iex
    ```
 
@@ -48,11 +49,12 @@ Codex CLI를 `npm.cmd`로 설치하고, 마지막 `codex-hooks` 줄이 프로젝
    [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";$HOME\.local\bin", "User")
    ```
 
-2. **PowerShell 창을 닫고 새로 연다.** PATH는 새 창에서만 갱신된다. 그 다음 셋이 모두 버전을 찍는지 확인한다.
+2. **PowerShell 창을 닫고 새로 연다.** PATH는 새 창에서만 갱신된다. 그 다음 넷이 모두 버전을 찍는지 확인한다.
 
    ```powershell
    git --version
    py -3 --version
+   node --version
    claude --version
    ```
 
@@ -91,7 +93,9 @@ claude plugin install gatekit@gatekit
 
 첫 줄은 Claude Code 공식 설치기이고, 나머지 두 줄이 gatekit을 설치한다. `git`과 `python3`(3.9 이상)가 필요하다. macOS는 `xcode-select --install`이 둘 다 설치하고(`git --version`이 설치를 물으면 그때 실행), Linux는 대개 이미 있다(Debian/Ubuntu: `sudo apt install -y git python3`). 설치 후 터미널을 새로 열고 프로젝트 폴더에서 `claude` → `/gatekit:doctor`를 돌린다.
 
-Codex도 쓰려면 Node.js(nodejs.org 또는 `brew install node`)를 깔고 `npm install -g @openai/codex`를 한 뒤 아래 "Codex 사용자" 절을 따른다. 훅이 sh로 실행되므로 Windows의 `commandWindows` 같은 조치는 필요 없다.
+Node.js LTS도 처음에 함께 설치한다. gatekit 자체에는 필요 없지만 스터디에서 웹 앱을 만들고 배포할 때 쓰고, Windows 설치 스크립트도 기본으로 설치한다(ADR-0033 결정 13). macOS는 nodejs.org의 설치기나 `brew install node`, Linux는 nodejs.org의 안내를 따른다(배포판 기본 패키지는 버전이 낡은 경우가 많다). `node --version`이 버전을 찍으면 된다.
+
+Codex도 쓰려면 `npm install -g @openai/codex`를 한 뒤 아래 "Codex 사용자" 절을 따른다. 훅이 sh로 실행되므로 Windows의 `commandWindows` 같은 조치는 필요 없다.
 
 Windows에 설치 스크립트가 필요했던 이유(Store 자리표시자 Python, 설치 직후 갱신되지 않는 PATH, cp949, PowerShell로 실행되는 훅, `codex.ps1` 실행 정책)는 이 시스템들에 없어서 스크립트를 두지 않는다. 다만 2026-10-05의 Windows 실측은 macOS·Linux를 다루지 않았으니, 설치 후 [프로젝트 초기화](#프로젝트-초기화) 전에 게이트 점검을 한 번 한다. `spec/`에 스펙 파일이 있고 승인 전인 상태에서 코드 쓰기가 막혀야 한다.
 

@@ -83,11 +83,14 @@ claude plugin install gatekit@gatekit
 첫 줄은 Claude Code 공식 설치기이고, 나머지 두 줄이 gatekit을 설치합니다.
 `git`과 `python3`(3.9 이상)가 필요합니다. macOS는 `xcode-select --install`이
 둘 다 설치합니다(`git --version`이 설치를 물으면 그때 실행). Linux는 대개 이미
-있습니다(Debian/Ubuntu: `sudo apt install -y git python3`). 그다음 터미널을
+있습니다(Debian/Ubuntu: `sudo apt install -y git python3`). Node.js LTS도
+이때 함께 설치하세요(macOS는 nodejs.org 또는 `brew install node`, Linux는
+배포판 패키지가 낡은 경우가 많아 nodejs.org 안내를 따릅니다). gatekit 자체에는
+필요 없지만 만들고 배포할 웹 앱에 필요하고, Windows 설치 스크립트도 기본으로
+설치합니다. 그다음 터미널을
 새로 열고 프로젝트 폴더에서 `claude`를 실행해 `/gatekit:doctor`를 돌리세요.
 업데이트는 `claude plugin marketplace update gatekit && claude plugin update gatekit@gatekit`.
-Codex도 쓰려면 Node.js(nodejs.org 또는 `brew install node`)를 설치한 뒤
-`npm install -g @openai/codex`를 하고 아래 [Codex](#codex-앱과-cli) 절을
+Codex도 쓰려면 `npm install -g @openai/codex`를 하고 아래 [Codex](#codex-앱과-cli) 절을
 따르세요. 이 시스템들에는 설치 스크립트를 두지 않습니다. 스크립트가 다루는
 Windows 문제(가짜 Python, 갱신 안 된 PATH, cp949, PowerShell로 실행되는 훅)가
 여기서는 생기지 않기 때문입니다. 2026-10-05 Windows 실측은 이 시스템들을

@@ -1,6 +1,6 @@
 # The pipeline end to end
 
-![The gatekit pipeline](../../assets/pipeline.svg)
+![The gatekit pipeline](../../assets/en/pipeline.svg)
 
 ## The full diagram
 

@@ -42,7 +42,7 @@ This rule exists because hand-writing the approval record, or the verdict record
 
 ### Rule (a) spec first
 
-If `enforce_spec_before_code` is on, the `spec/` directory exists, and the approval of `spec/05-gate.md` is not `ok`, writes outside the allowlist below are refused.
+If `enforce_spec_before_code` is on, `spec/` holds one of gatekit's spec files, and the approval of `spec/05-gate.md` is not `ok`, writes outside the allowlist below are refused. A `spec/` that holds none of gatekit's spec files — an RSpec project's `spec/`, or an empty one — does not count (ADR-0036).
 
 ```text
 spec/**
@@ -52,7 +52,7 @@ README*
 *.md   (root level only)
 ```
 
-This allowlist exists because you must be able to write the very spec that opens the gate.
+This allowlist exists because you must be able to write the very spec that opens the gate. `.gatekit/**` is on the list, but rule (c) is checked first, so of the state directory only `config.json` and `eval/**` can actually be written before approval.
 
 **What to do when blocked**: run `/gatekit:gate` to create the completion criteria and have the user approve them. If it is urgent, write to `spec/`, `docs/`, or root-level Markdown first. The block message shows the current approval state (`fail` or `unverified`) and the blocked path.
 
@@ -79,7 +79,7 @@ If the scope cannot be checked, the write is refused. A worker that claims a tas
 
 **What it does**: it reads the command string without running it, extracts the files the command will write, and judges each path with the **same function** as the write gate. It recognizes redirection (`>`, `>>`, `&>`), `tee`, `sed -i`, `perl -i`, the destination of `cp`/`mv`/`ln`/`install`/`rsync`, the targets of `touch`/`rm`/`mkdir`/`truncate`/`chmod`/`chown`, `dd of=`, and tools whose output path appears directly in the arguments, such as `sort -o`, `curl -o`, `wget -O`, `tar -C`/`-f`, `unzip -d`, and `zip`. It tracks `cd` across `;`, `&&`, `|`, and newlines, strips `VAR=`, `sudo`, `env`, and `nohup` prefixes, ignores heredoc bodies and `/dev/*`, and reads `sh -c "…"` recursively.
 
-**When the rules are off**: in a state where rules (a) and (b) cannot refuse (no `GATEKIT_TASK_ID`, and the gate is approved or there is no `spec/`), the command is still read, but only the protected-state check below judges the result. Everything else passes without a verdict. The reading is static and light, so a normal session feels no cost.
+**When the rules are off**: in a state where rules (a) and (b) cannot refuse (no `GATEKIT_TASK_ID`, and the gate is approved or `spec/` holds no gatekit spec file), the command is still read, but only the protected-state check below judges the result. Everything else passes without a verdict. The reading is static and light, so a normal session feels no cost.
 
 **Undeterminable means refused**: when the rules are live and the write target cannot be determined, the command is refused. This covers `$VAR` or backticks inside a path, `cd` into an unknown directory, `eval`, `xargs`, `patch`, `trap`, `find -exec`, `git` subcommands that change the working tree (`apply`, `checkout`, `restore`, `reset`, `merge`, `stash`, `init`, `clone`, and so on), inline interpreter code (`python3 -c`, `node -e`), interpreters that take a script on standard input (`python3 <<PY`, `echo … | node`, `python3 < s.py` — not when a script file or `-m module` is in the arguments), `awk`, command-line editors (`ed`, `ex`, `vim`, `nano`), `busybox`, downloads that pick their own file name (`curl -O`, `wget` with no option), process substitution, and unbalanced quotes. The refusal message gives the reason and an alternative (the Write/Edit tools, a literal path). It is the same principle as never rounding `unverified` up to `ok`.
 
@@ -175,7 +175,7 @@ If the scope cannot be checked, the write is refused. A worker that claims a tas
 
 **Block condition**: the contract run has at least one `fail` or `unverified` criterion, `block_count` is below 3, and `stop_hook_active` is not true. The block message lists the failed criteria, and `block_count` goes up by 1.
 
-If the contract is stale, a different message goes out: it tells you to run `contract derive` and finish the work.
+If the contract is stale, a different message goes out: it tells you to run `contract derive` and finish the work. If another contract run (an evaluator's or a `contract run`) held the lock for 30 seconds, the result is `unverified` with nothing judged and nothing recorded (`contract_busy`, ADR-0031), and the message says so: this is neither a failure nor a pass — wait for that run to finish, then end the turn again.
 
 **Integrity check (ADR-0027)**: before running any criterion, and before reusing an earlier verdict record, it checks three things in order: `contract_stale` (above); `gate_not_approved` (`approve check spec/05-gate.md` is not `ok` — there is no approval, the file changed after approval, or a pinned grading file differs from the contract); and `contract_mismatch` (re-parsing `05-gate.md` in memory gives a result that differs from `contract.json` in any criterion field, the order, or the budget). If any one of them trips, the result is `unverified` with no criteria, and it blocks like any other `unverified`. `contract run` performs the same checks (`contract baseline` runs before approval, so it skips only the approval check). The verdict record `runs/contract-last.json` also stores the hash of the `contract.json` of that moment (`contract_sha256`); if the hash differs or is missing, the record is not reused.
 

@@ -17,7 +17,7 @@
 - [ ] Gates stay in hooks; no enforcement was moved into command or skill prose.
 - [ ] Clean-room: no code copied from another project.
 - [ ] No absolute personal paths, no file over 1 MB.
-- [ ] If a command, subcommand or spec file was renamed, `docs/manual/` and both READMEs follow in this PR.
+- [ ] If a command, subcommand or spec file was renamed, `docs/manual/` (Korean and `en/`) and both READMEs follow in this PR.
 
 ## Test and gate output
 

@@ -60,7 +60,7 @@ that matter into things a hook enforces:
   but no participant has run a full session on it yet; CI proves the Python
   code on `windows-latest`, not that a host calls the hooks there. For
   Claude Code, follow the Windows walkthrough in the manual
-  (`docs/manual/02-install.md`, "Windows에서 처음부터": Git, Python, Claude
+  (`docs/manual/en/02-install.md`, "Windows from scratch": Git, Python, Claude
   Code, then the plugin) — install Git for Windows (Claude Code then runs hooks through
   Git Bash). Shell commands Claude Code runs through its `PowerShell` tool
   meet the same rules as Bash (the powershell gate, ADR-0028). WSL also
@@ -304,12 +304,12 @@ defaults.
 
 ## Documentation
 
-- `docs/manual/` — the user manual (Korean): install, concepts, the
+- `docs/manual/en/` — the user manual: install, concepts, the
   commands, the spec files, the gates, the CLI, a worked example,
   troubleshooting, and the design decisions. Start at
-  `docs/manual/00-index.md`, or jump straight to the "first 30 minutes"
-  walkthrough in `docs/manual/01-what-and-why.md` and run the loop once
-  before reading the concepts.
+  `docs/manual/en/00-index.md`, or jump straight to the "first 30 minutes"
+  walkthrough in `docs/manual/en/01-what-and-why.md` and run the loop once
+  before reading the concepts. The Korean original is `docs/manual/`.
 - `docs/QUICKSTART.md` — the short path from install to a first run.
 - `docs/ARCHITECTURE.md` — the binding contract every module must satisfy.
 - `docs/decisions/` — the architectural decision records.

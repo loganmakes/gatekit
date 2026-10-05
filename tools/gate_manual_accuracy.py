@@ -12,6 +12,8 @@ removal would invalidate:
   * every ``/gatekit:<name>`` names a file in plugin/commands/
   * every spec file named as ``NN-*.md`` exists in the ko template set
   * the index links to every other manual page, and links resolve
+  * when the English manual (docs/manual/en/) exists, it gets the same
+    checks, and each language has every page the other has
 
 It cannot check whether the prose is true; that is what review is for.
 """
@@ -41,14 +43,30 @@ SUBCOMMANDS_RE = re.compile(r'^\s*"([a-z-]+)":\s*\("gatekit\.', re.MULTILINE)
 
 
 def scan(root: pathlib.Path) -> list:
-    findings = []
     manual = root / "docs" / "manual"
     if not manual.is_dir():
         return [{"path": "docs/manual", "line": 0, "message": "manual directory is missing"}]
+    findings = scan_pages(root, manual)
+    english = manual / "en"
+    if english.is_dir():
+        findings += scan_pages(root, english)
+        ko = {p.name for p in manual.glob("*.md")}
+        en = {p.name for p in english.glob("*.md")}
+        for name in sorted(ko - en):
+            findings.append({"path": f"docs/manual/en/{name}", "line": 0,
+                             "message": f"English page is missing; docs/manual/{name} has no translation"})
+        for name in sorted(en - ko):
+            findings.append({"path": f"docs/manual/{name}", "line": 0,
+                             "message": f"Korean page is missing; docs/manual/en/{name} has no original"})
+    return findings
 
+
+def scan_pages(root: pathlib.Path, manual: pathlib.Path) -> list:
+    findings = []
+    rel_dir = manual.relative_to(root).as_posix()
     pages = sorted(manual.glob("*.md"))
     if not pages:
-        return [{"path": "docs/manual", "line": 0, "message": "manual directory has no pages"}]
+        return [{"path": rel_dir, "line": 0, "message": "manual directory has no pages"}]
 
     cli = root / "plugin" / "gatekit" / "cli.py"
     subs = set(SUBCOMMANDS_RE.findall(cli.read_text(encoding="utf-8"))) if cli.is_file() else set()
@@ -81,12 +99,12 @@ def scan(root: pathlib.Path) -> list:
 
     index = manual / "00-index.md"
     if not index.is_file():
-        findings.append({"path": "docs/manual/00-index.md", "line": 0, "message": "index page is missing"})
+        findings.append({"path": f"{rel_dir}/00-index.md", "line": 0, "message": "index page is missing"})
     else:
         linked = set(REF_RE.findall(index.read_text(encoding="utf-8")))
         for page in pages:
             if page.name != "00-index.md" and page.name not in linked:
-                findings.append({"path": "docs/manual/00-index.md", "line": 0,
+                findings.append({"path": f"{rel_dir}/00-index.md", "line": 0,
                                  "message": f"index does not link to {page.name}"})
     return findings
 

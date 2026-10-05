@@ -89,6 +89,9 @@ both of these in CI.
 `docs/manual/` is the source of truth. `tools/gate_manual_accuracy.py` fails the
 build if a page cites a command, subcommand or spec file that does not exist, so
 rename anything in `plugin/` and the manual has to follow in the same commit.
+The manual has two editions, Korean (`docs/manual/`) and English
+(`docs/manual/en/`); the same gate fails when a page exists in one and not the
+other, so change both in the same commit.
 
 To produce the Notion import bundle:
 

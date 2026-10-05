@@ -13,7 +13,7 @@
 | compact | `PreCompact` | none | No |
 | stop | `Stop` | none | Yes (at most 3 times) |
 
-![Hook gates overview](../../assets/gates.svg)
+![Hook gates overview](../../assets/en/gates.svg)
 
 ## prompt gate
 

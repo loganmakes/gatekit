@@ -1,0 +1,186 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="880" viewBox="0 0 1440 880" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif">
+
+  <rect x="0" y="0" width="1440" height="880" fill="#FBF9F5"/>
+
+  <!-- ===== Title ===== -->
+  <text x="72" y="72" font-size="34" font-weight="700" fill="#12312E">The gatekit pipeline</text>
+  <text x="72" y="104" font-size="17" fill="#6B6459">From a one-sentence idea to verified completion, in six stages</text>
+
+  <!-- ===== Side panel: doctor / setup ===== -->
+  <rect x="1054" y="46" width="314" height="118" rx="10" fill="#FFFFFF" stroke="#DCD5C8" stroke-width="1.5"/>
+  <rect x="1054" y="46" width="4" height="118" rx="2" fill="#8C8577"/>
+  <text x="1078" y="76" font-size="14" font-weight="700" fill="#6B6459" letter-spacing="1.2">OUTSIDE THE PIPELINE</text>
+  <text x="1078" y="106" font-size="16" font-weight="600" fill="#12312E" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">/gatekit:doctor</text>
+  <text x="1262" y="106" font-size="13" fill="#6B6459">any time</text>
+  <text x="1078" y="136" font-size="16" font-weight="600" fill="#12312E" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">/gatekit:setup</text>
+  <text x="1262" y="136" font-size="13" fill="#6B6459">once per project</text>
+  <text x="1078" y="156" font-size="13" fill="#8C8577">8-axis diagnosis / config and worker check</text>
+
+  <!-- ===== Rail ===== -->
+  <line x1="72" y1="286" x2="1368" y2="286" stroke="#DCD5C8" stroke-width="2"/>
+
+  <!-- ===== Stage 1 : interview ===== -->
+  <g>
+    <rect x="72" y="196" width="196" height="180" rx="12" fill="#FFFFFF" stroke="#0E5C55" stroke-width="2"/>
+    <rect x="72" y="196" width="196" height="42" rx="12" fill="#0E5C55"/>
+    <rect x="72" y="226" width="196" height="12" fill="#0E5C55"/>
+    <circle cx="98" cy="217" r="12" fill="#FFFFFF"/>
+    <text x="98" y="222" font-size="14" font-weight="700" fill="#0E5C55" text-anchor="middle">1</text>
+    <text x="120" y="223" font-size="17" font-weight="700" fill="#FFFFFF">interview</text>
+    <text x="90" y="266" font-size="13" fill="#0E5C55" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">/gatekit:interview</text>
+    <line x1="90" y1="282" x2="250" y2="282" stroke="#EDE7DC" stroke-width="1.5"/>
+    <text x="90" y="304" font-size="12" fill="#8C8577" letter-spacing="0.8">OUTPUT</text>
+    <text x="90" y="326" font-size="13.5" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">spec/01-prd.md</text>
+    <text x="90" y="346" font-size="11.5" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">spec/03-architecture.md</text>
+    <text x="90" y="366" font-size="12" fill="#8C8577">Problem, goals, criteria, ledger</text>
+  </g>
+  <path d="M 268 286 L 296 286" stroke="#0E5C55" stroke-width="2.5" fill="none"/>
+  <path d="M 296 286 L 288 281 L 288 291 Z" fill="#0E5C55"/>
+
+  <!-- ===== Stage 2 : mockup (optional) ===== -->
+  <g>
+    <rect x="300" y="196" width="196" height="180" rx="12" fill="#FFFFFF" stroke="#0E5C55" stroke-width="2" stroke-dasharray="7 5"/>
+    <rect x="300" y="196" width="196" height="42" rx="12" fill="#4E8C84"/>
+    <rect x="300" y="226" width="196" height="12" fill="#4E8C84"/>
+    <circle cx="326" cy="217" r="12" fill="#FFFFFF"/>
+    <text x="326" y="222" font-size="14" font-weight="700" fill="#4E8C84" text-anchor="middle">2</text>
+    <text x="348" y="223" font-size="17" font-weight="700" fill="#FFFFFF">mockup</text>
+    <rect x="426" y="206" width="58" height="22" rx="11" fill="#FFFFFF" fill-opacity="0.26" stroke="#FFFFFF" stroke-width="1.1"/>
+    <text x="455" y="222" font-size="11.5" font-weight="700" fill="#FFFFFF" text-anchor="middle">optional</text>
+    <text x="318" y="266" font-size="13" fill="#0E5C55" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">/gatekit:mockup</text>
+    <line x1="318" y1="282" x2="478" y2="282" stroke="#EDE7DC" stroke-width="1.5"/>
+    <text x="318" y="304" font-size="12" fill="#8C8577" letter-spacing="0.8">OUTPUT</text>
+    <text x="318" y="326" font-size="12.5" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">spec/02-screens.md</text>
+    <text x="318" y="346" font-size="13.5" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">spec/tokens.json</text>
+    <text x="318" y="366" font-size="12" fill="#8C8577">Adds gap rows to 01's ledger</text>
+  </g>
+  <path d="M 496 286 L 524 286" stroke="#0E5C55" stroke-width="2.5" fill="none"/>
+  <path d="M 524 286 L 516 281 L 516 291 Z" fill="#0E5C55"/>
+
+  <!-- ===== Stage 3 : tasks ===== -->
+  <g>
+    <rect x="528" y="196" width="196" height="180" rx="12" fill="#FFFFFF" stroke="#0E5C55" stroke-width="2"/>
+    <rect x="528" y="196" width="196" height="42" rx="12" fill="#0E5C55"/>
+    <rect x="528" y="226" width="196" height="12" fill="#0E5C55"/>
+    <circle cx="554" cy="217" r="12" fill="#FFFFFF"/>
+    <text x="554" y="222" font-size="14" font-weight="700" fill="#0E5C55" text-anchor="middle">3</text>
+    <text x="576" y="223" font-size="17" font-weight="700" fill="#FFFFFF">tasks</text>
+    <text x="546" y="266" font-size="13" fill="#0E5C55" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">/gatekit:tasks</text>
+    <line x1="546" y1="282" x2="706" y2="282" stroke="#EDE7DC" stroke-width="1.5"/>
+    <text x="546" y="304" font-size="12" fill="#8C8577" letter-spacing="0.8">OUTPUT</text>
+    <text x="546" y="326" font-size="13.5" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">spec/04-tasks.md</text>
+    <text x="546" y="346" font-size="12" fill="#8C8577">Tasks as gatekit-task fences</text>
+    <text x="546" y="366" font-size="12" fill="#8C8577">No gate. Planning only</text>
+  </g>
+  <path d="M 724 286 L 752 286" stroke="#0E5C55" stroke-width="2.5" fill="none"/>
+  <path d="M 752 286 L 744 281 L 744 291 Z" fill="#0E5C55"/>
+
+  <!-- ===== Stage 4 : gate (human approval) ===== -->
+  <g>
+    <rect x="756" y="184" width="196" height="204" rx="12" fill="#FFFFFF" stroke="#B8860B" stroke-width="2.5"/>
+    <rect x="756" y="184" width="196" height="42" rx="12" fill="#8A6410"/>
+    <rect x="756" y="214" width="196" height="12" fill="#8A6410"/>
+    <circle cx="782" cy="205" r="12" fill="#FFFFFF"/>
+    <text x="782" y="210" font-size="14" font-weight="700" fill="#8A6410" text-anchor="middle">4</text>
+    <text x="804" y="211" font-size="17" font-weight="700" fill="#FFFFFF">gate</text>
+    <text x="774" y="254" font-size="13" fill="#8A6410" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">/gatekit:gate</text>
+
+    <rect x="774" y="266" width="160" height="30" rx="6" fill="#FBF1DA" stroke="#D9AE4A" stroke-width="1.2"/>
+    <text x="854" y="286" font-size="14" font-weight="700" fill="#8A6410" text-anchor="middle">A human approves</text>
+
+    <text x="774" y="320" font-size="12" fill="#8C8577" letter-spacing="0.8">OUTPUT</text>
+    <text x="774" y="340" font-size="12" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">spec/05-gate.md</text>
+    <text x="774" y="358" font-size="12" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">.gatekit/contract.json</text>
+    <text x="774" y="376" font-size="12" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">.gatekit/approvals.json</text>
+  </g>
+  <path d="M 952 286 L 980 286" stroke="#0E5C55" stroke-width="2.5" fill="none"/>
+  <path d="M 980 286 L 972 281 L 972 291 Z" fill="#0E5C55"/>
+
+  <!-- ===== Stage 5 : build ===== -->
+  <g>
+    <rect x="984" y="196" width="196" height="180" rx="12" fill="#FFFFFF" stroke="#0E5C55" stroke-width="2"/>
+    <rect x="984" y="196" width="196" height="42" rx="12" fill="#0E5C55"/>
+    <rect x="984" y="226" width="196" height="12" fill="#0E5C55"/>
+    <circle cx="1010" cy="217" r="12" fill="#FFFFFF"/>
+    <text x="1010" y="222" font-size="14" font-weight="700" fill="#0E5C55" text-anchor="middle">5</text>
+    <text x="1032" y="223" font-size="17" font-weight="700" fill="#FFFFFF">build</text>
+    <text x="1002" y="266" font-size="13" fill="#0E5C55" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">/gatekit:build</text>
+    <line x1="1002" y1="282" x2="1162" y2="282" stroke="#EDE7DC" stroke-width="1.5"/>
+    <text x="1002" y="304" font-size="12" fill="#8C8577" letter-spacing="0.8">OUTPUT</text>
+    <text x="1002" y="326" font-size="11.5" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">.gatekit/jobs/&lt;job_id&gt;/</text>
+    <text x="1002" y="346" font-size="12.5" fill="#2E2A24" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">spec/PROGRESS.md</text>
+    <text x="1002" y="366" font-size="12" fill="#8C8577">Workers write the code</text>
+  </g>
+  <path d="M 1180 286 L 1208 286" stroke="#0E5C55" stroke-width="2.5" fill="none"/>
+  <path d="M 1208 286 L 1200 281 L 1200 291 Z" fill="#0E5C55"/>
+
+  <!-- ===== Stage 6 : verify ===== -->
+  <g>
+    <rect x="1212" y="196" width="156" height="180" rx="12" fill="#FFFFFF" stroke="#0E5C55" stroke-width="2"/>
+    <rect x="1212" y="196" width="156" height="42" rx="12" fill="#0E5C55"/>
+    <rect x="1212" y="226" width="156" height="12" fill="#0E5C55"/>
+    <circle cx="1238" cy="217" r="12" fill="#FFFFFF"/>
+    <text x="1238" y="222" font-size="14" font-weight="700" fill="#0E5C55" text-anchor="middle">6</text>
+    <text x="1260" y="223" font-size="17" font-weight="700" fill="#FFFFFF">verify</text>
+    <text x="1230" y="266" font-size="13" fill="#0E5C55" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">/gatekit:verify</text>
+    <line x1="1230" y1="282" x2="1350" y2="282" stroke="#EDE7DC" stroke-width="1.5"/>
+    <text x="1230" y="304" font-size="12" fill="#8C8577" letter-spacing="0.8">OUTPUT</text>
+    <text x="1230" y="326" font-size="13" fill="#2E2A24">Evaluator verdicts</text>
+    <text x="1230" y="346" font-size="13" fill="#2E2A24">Last verification</text>
+    <text x="1230" y="366" font-size="12" fill="#8C8577">producer ≠ evaluator</text>
+  </g>
+
+  <!-- ===== Write-gate band ===== -->
+  <!-- closed segment -->
+  <rect x="72" y="452" width="782" height="52" rx="8" fill="#F3EEE4" stroke="#DCD5C8" stroke-width="1.5"/>
+  <text x="96" y="474" font-size="14.5" font-weight="700" fill="#6B6459">Write gate — closed</text>
+  <text x="96" y="494" font-size="13" fill="#8C8577">Source file edits refused. Only spec/** · .gatekit/** · docs/** · README* · root *.md can be written</text>
+
+  <!-- open segment -->
+  <rect x="866" y="452" width="502" height="52" rx="8" fill="#E4F0EC" stroke="#0E5C55" stroke-width="1.8"/>
+  <text x="890" y="474" font-size="14.5" font-weight="700" fill="#0E5C55">Write gate — open</text>
+  <text x="890" y="494" font-size="13" fill="#3A5F59">Workers write only inside their task's write_scope (rule b, stricter)</text>
+
+  <!-- approval drop line -->
+  <line x1="854" y1="388" x2="854" y2="452" stroke="#B8860B" stroke-width="2.5" stroke-dasharray="6 4"/>
+  <path d="M 854 452 L 849 442 L 859 442 Z" fill="#B8860B"/>
+  <rect x="700" y="400" width="308" height="34" rx="17" fill="#FBF1DA" stroke="#D9AE4A" stroke-width="1.5"/>
+  <text x="854" y="422" font-size="14.5" font-weight="700" fill="#8A6410" text-anchor="middle">Approval opens the write gate here</text>
+
+  <!-- Stop gate marker at the end -->
+  <line x1="1290" y1="504" x2="1290" y2="556" stroke="#0E5C55" stroke-width="2.5"/>
+  <path d="M 1290 556 L 1285 546 L 1295 546 Z" fill="#0E5C55"/>
+
+  <!-- ===== Bottom notes ===== -->
+  <rect x="72" y="568" width="398" height="122" rx="10" fill="#FFFFFF" stroke="#DCD5C8" stroke-width="1.5"/>
+  <rect x="72" y="568" width="4" height="122" rx="2" fill="#0E5C55"/>
+  <text x="96" y="598" font-size="15" font-weight="700" fill="#12312E">Paths back</text>
+  <text x="96" y="624" font-size="13" fill="#4A443B">Editing 05-gate.md makes the approval stale</text>
+  <text x="96" y="644" font-size="13" fill="#4A443B">and the contract stale. Derive and approve again.</text>
+  <text x="96" y="670" font-size="13" fill="#4A443B">If verify is not ok, go back to build.</text>
+
+  <rect x="490" y="568" width="398" height="122" rx="10" fill="#FFFFFF" stroke="#DCD5C8" stroke-width="1.5"/>
+  <rect x="490" y="568" width="4" height="122" rx="2" fill="#B3382C"/>
+  <text x="514" y="598" font-size="15" font-weight="700" fill="#12312E">3 failures in a row</text>
+  <text x="514" y="624" font-size="13" fill="#4A443B">After 3 failures in a row, build stops redelegating,</text>
+  <text x="514" y="644" font-size="13" fill="#4A443B">writes a diagnosis to spec/RECOVERY.md, and halts.</text>
+  <text x="514" y="670" font-size="13" fill="#4A443B">It does not fix the code itself.</text>
+
+  <rect x="908" y="568" width="460" height="122" rx="10" fill="#FFFFFF" stroke="#0E5C55" stroke-width="1.8"/>
+  <rect x="908" y="568" width="4" height="122" rx="2" fill="#0E5C55"/>
+  <text x="932" y="598" font-size="15" font-weight="700" fill="#12312E">The Stop gate runs the contract</text>
+  <text x="932" y="624" font-size="13" fill="#4A443B">Ending the session runs the completion contract.</text>
+  <text x="932" y="644" font-size="13" fill="#4A443B">Any fail or unverified blocks the end, up to 3 times.</text>
+  <text x="932" y="670" font-size="13" fill="#4A443B">All build tasks passed is not the same as a contract pass.</text>
+
+  <!-- ===== Footer ===== -->
+  <line x1="72" y1="736" x2="1368" y2="736" stroke="#EDE7DC" stroke-width="1.5"/>
+  <text x="72" y="768" font-size="13" fill="#8C8577">Gates at each stage</text>
+  <text x="72" y="796" font-size="13.5" fill="#4A443B">Stages 1–2: the question gate manages the question budget (interview: 2 by default)</text>
+  <text x="72" y="820" font-size="13.5" fill="#4A443B">Stage 3: no gate</text>
+  <text x="72" y="844" font-size="13.5" fill="#4A443B">Stage 4: approval opens the write gate</text>
+  <text x="620" y="796" font-size="13.5" fill="#4A443B">Stage 5: the write gate enforces write_scope</text>
+  <text x="620" y="820" font-size="13.5" fill="#4A443B">Stage 6: the spawn gate checks the evaluator's scope</text>
+  <text x="620" y="844" font-size="13.5" fill="#4A443B">At the end: the stop gate runs the completion contract</text>
+
+</svg>

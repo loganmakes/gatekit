@@ -567,6 +567,54 @@ class TestManualAccuracy(unittest.TestCase):
             self.assertEqual(proc.returncode, 1)
             self.assertIn("02-orphan.md", proc.stdout)
 
+    def _english(self, root: pathlib.Path) -> None:
+        write(root / "docs" / "manual" / "en" / "00-index.md",
+              "# index\n\n- [Intro](01-intro.md)\n")
+        write(root / "docs" / "manual" / "en" / "01-intro.md",
+              '# intro\n\n`python3 "${CLAUDE_PLUGIN_ROOT}/bin/gatekit.py" doctor`\n')
+
+    def test_english_manual_mirroring_every_page_passes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            self._manual_repo(root)
+            self._english(root)
+            proc = run_gate("gate_manual_accuracy.py", root)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
+    def test_korean_page_without_an_english_one_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            self._manual_repo(root)
+            self._english(root)
+            write(root / "docs" / "manual" / "02-more.md", "# more\n")
+            write(root / "docs" / "manual" / "00-index.md",
+                  "# index\n\n- [소개](01-intro.md)\n- [더](02-more.md)\n")
+            proc = run_gate("gate_manual_accuracy.py", root)
+            self.assertEqual(proc.returncode, 1)
+            self.assertIn("docs/manual/en/02-more.md", proc.stdout)
+
+    def test_english_page_without_a_korean_one_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            self._manual_repo(root)
+            self._english(root)
+            write(root / "docs" / "manual" / "en" / "02-extra.md", "# extra\n")
+            write(root / "docs" / "manual" / "en" / "00-index.md",
+                  "# index\n\n- [Intro](01-intro.md)\n- [Extra](02-extra.md)\n")
+            proc = run_gate("gate_manual_accuracy.py", root)
+            self.assertEqual(proc.returncode, 1)
+            self.assertIn("docs/manual/02-extra.md", proc.stdout)
+
+    def test_english_pages_get_the_same_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            self._manual_repo(root)
+            self._english(root)
+            write(root / "docs" / "manual" / "en" / "01-intro.md", "# intro\n\n/gatekit:nosuch\n")
+            proc = run_gate("gate_manual_accuracy.py", root)
+            self.assertEqual(proc.returncode, 1)
+            self.assertIn("docs/manual/en/01-intro.md", proc.stdout)
+
 
 class TestCleanRoom(unittest.TestCase):
     def test_clean_repo_passes(self) -> None:

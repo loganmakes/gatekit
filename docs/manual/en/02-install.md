@@ -154,7 +154,7 @@ After restarting, always run the diagnosis.
 
 | # | Axis | What it checks | Fix when `fail` |
 |---|---|---|---|
-| 1 | plugin files | Do `plugin.json`, `hooks.json` and the 7 gate scripts exist and are they non-empty? | `/plugin install gatekit` — if a script is missing, that gate never fires at all |
+| 1 | plugin files | Do `plugin.json`, `hooks.json` and the 8 gate scripts (prompt, write, bash, powershell, skill, spawn, question, stop) exist and are they non-empty? | `/plugin install gatekit` — if a script is missing, that gate never fires at all |
 | 2 | hooks registered | Is it listed in `installed_plugins.json` and enabled in `enabledPlugins` of `settings.json`? | `/plugin enable gatekit@gatekit` |
 | 3 | project state | Do `.gatekit/config.json` and `approvals.json` parse? `warn` if something is already listening on the `webServer` port of a Playwright config (`playwright.config.{ts,js,mjs,cjs}`, including under `spec/design/e2e/`) (the `port:`/`url:` numbers inside the braces or brackets of a `webServer:`, `'webServer':` or `const webServer: Type =` value, with comments removed, and the default after `||` as in `process.env.PORT \|\| 3000`; this is a simple scan, not a parser, so a port given only through a variable is not found). On POSIX, if `lsof` is available, it records that process's PID, command and working directory, and whether it is inside or outside this project (ADR-0026) | Edit or delete the file by hand. For a port conflict, stop that process yourself or change the port. doctor terminates nothing |
 | 4 | spec set | The `spec validate` verdict | Go to the pipeline that owns the failing file |

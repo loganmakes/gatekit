@@ -89,11 +89,14 @@ The first line is Claude Code's official installer; the other two add
 gatekit. You need `git` and Python 3.9 or newer as `python3`: on macOS,
 `xcode-select --install` provides both (run it if `git --version` asks);
 on Linux they are usually there already (Debian/Ubuntu:
-`sudo apt install -y git python3`). Then open a new terminal, run `claude`
+`sudo apt install -y git python3`). Install Node.js LTS at the same time
+(nodejs.org, or `brew install node` on macOS; on Linux follow nodejs.org,
+since distribution packages are often old): gatekit does not need it, but
+the web apps you build and deploy do, and the Windows installer adds it by
+default. Then open a new terminal, run `claude`
 in your project folder and `/gatekit:doctor`. To update:
 `claude plugin marketplace update gatekit && claude plugin update gatekit@gatekit`.
-For Codex as well, install Node.js (nodejs.org, or `brew install node`),
-then `npm install -g @openai/codex` and follow [Codex](#codex-app-and-cli)
+For Codex as well, run `npm install -g @openai/codex` and follow [Codex](#codex-app-and-cli)
 below. No installer script is offered here: none of the Windows failures it
 handles (a placeholder Python, a stale PATH, cp949, hooks run in
 PowerShell) occur on these systems. The 2026-10-05 Windows checks did not

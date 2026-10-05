@@ -1,0 +1,167 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="920" viewBox="0 0 1440 920" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif">
+
+  <rect x="0" y="0" width="1440" height="920" fill="#FBF9F5"/>
+
+  <!-- ===== Title ===== -->
+  <text x="72" y="72" font-size="34" font-weight="700" fill="#12312E">Five hook gates</text>
+  <text x="72" y="104" font-size="17" fill="#6B6459">Where the gates fire in one Claude Code session</text>
+
+  <!-- legend -->
+  <rect x="1084" y="46" width="284" height="66" rx="10" fill="#FFFFFF" stroke="#DCD5C8" stroke-width="1.5"/>
+  <rect x="1106" y="66" width="14" height="14" rx="3" fill="#B3382C"/>
+  <text x="1130" y="78" font-size="14" fill="#4A443B">Blocks</text>
+  <rect x="1226" y="66" width="14" height="14" rx="3" fill="#8C8577"/>
+  <text x="1250" y="78" font-size="14" fill="#4A443B">Does not block</text>
+  <text x="1106" y="100" font-size="13" fill="#8C8577">Registered in plugin/hooks/hooks.json</text>
+
+  <!-- ===== Session timeline rail ===== -->
+  <text x="72" y="158" font-size="13" fill="#8C8577" letter-spacing="1">SESSION TIMELINE</text>
+  <line x1="96" y1="196" x2="1344" y2="196" stroke="#C9C1B2" stroke-width="3"/>
+  <path d="M 1344 196 L 1332 189 L 1332 203 Z" fill="#C9C1B2"/>
+  <text x="96" y="184" font-size="13" fill="#8C8577">Session start</text>
+  <text x="1344" y="184" font-size="13" fill="#8C8577" text-anchor="end">Session end</text>
+
+  <!-- ===== Gate 1 : prompt ===== -->
+  <circle cx="180" cy="196" r="9" fill="#8C8577"/>
+  <line x1="180" y1="205" x2="180" y2="248" stroke="#C9C1B2" stroke-width="2"/>
+  <g>
+    <rect x="72" y="248" width="228" height="192" rx="12" fill="#FFFFFF" stroke="#DCD5C8" stroke-width="1.8"/>
+    <rect x="72" y="248" width="228" height="6" rx="3" fill="#8C8577"/>
+    <text x="96" y="286" font-size="20" font-weight="700" fill="#12312E">prompt</text>
+    <rect x="188" y="270" width="90" height="22" rx="11" fill="#EFEBE2"/>
+    <text x="233" y="286" font-size="12.5" font-weight="700" fill="#6B6459" text-anchor="middle">No block</text>
+    <text x="96" y="312" font-size="13" fill="#0E5C55" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">UserPromptSubmit</text>
+    <line x1="96" y1="326" x2="276" y2="326" stroke="#EDE7DC" stroke-width="1.5"/>
+    <text x="96" y="350" font-size="13.5" fill="#2E2A24">Blocks — nothing</text>
+    <text x="96" y="376" font-size="13" fill="#6B6459">Creates the session ledger,</text>
+    <text x="96" y="396" font-size="13" fill="#6B6459">detects the output language,</text>
+    <text x="96" y="416" font-size="13" fill="#6B6459">injects ≤600 chars of context.</text>
+  </g>
+
+  <!-- ===== Gate 2 : write ===== -->
+  <circle cx="440" cy="196" r="9" fill="#B3382C"/>
+  <line x1="440" y1="205" x2="440" y2="248" stroke="#C9C1B2" stroke-width="2"/>
+  <g>
+    <rect x="332" y="248" width="228" height="192" rx="12" fill="#FFFFFF" stroke="#B3382C" stroke-width="1.8"/>
+    <rect x="332" y="248" width="228" height="6" rx="3" fill="#B3382C"/>
+    <text x="356" y="286" font-size="20" font-weight="700" fill="#12312E">write</text>
+    <rect x="466" y="270" width="70" height="22" rx="11" fill="#F8E7E4"/>
+    <text x="501" y="286" font-size="12.5" font-weight="700" fill="#B3382C" text-anchor="middle">Blocks</text>
+    <text x="356" y="312" font-size="13" fill="#0E5C55" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">PreToolUse</text>
+    <line x1="356" y1="326" x2="536" y2="326" stroke="#EDE7DC" stroke-width="1.5"/>
+    <text x="356" y="350" font-size="13.5" fill="#2E2A24">Blocks — unapproved writes</text>
+    <text x="356" y="376" font-size="13" fill="#6B6459">Before Write · Edit ·</text>
+    <text x="356" y="396" font-size="13" fill="#6B6459">MultiEdit · NotebookEdit.</text>
+    <text x="356" y="416" font-size="13" fill="#6B6459">(a) spec first, (b) task scope.</text>
+  </g>
+
+  <!-- ===== Gate 3 : spawn ===== -->
+  <circle cx="700" cy="196" r="9" fill="#B3382C"/>
+  <line x1="700" y1="205" x2="700" y2="248" stroke="#C9C1B2" stroke-width="2"/>
+  <g>
+    <rect x="592" y="248" width="228" height="192" rx="12" fill="#FFFFFF" stroke="#B3382C" stroke-width="1.8"/>
+    <rect x="592" y="248" width="228" height="6" rx="3" fill="#B3382C"/>
+    <text x="616" y="286" font-size="20" font-weight="700" fill="#12312E">spawn</text>
+    <rect x="726" y="270" width="70" height="22" rx="11" fill="#F8E7E4"/>
+    <text x="761" y="286" font-size="12.5" font-weight="700" fill="#B3382C" text-anchor="middle">Blocks</text>
+    <text x="616" y="312" font-size="13" fill="#0E5C55" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">PreToolUse</text>
+    <line x1="616" y1="326" x2="796" y2="326" stroke="#EDE7DC" stroke-width="1.5"/>
+    <text x="616" y="350" font-size="13" fill="#2E2A24">Blocks — unscoped subagents</text>
+    <text x="616" y="376" font-size="13" fill="#6B6459">Before Agent · Task. Parses</text>
+    <text x="616" y="396" font-size="12.5" fill="#6B6459">gatekit-scope fence as JSON;</text>
+    <text x="616" y="416" font-size="13" fill="#6B6459">refuses overlapping scopes.</text>
+  </g>
+
+  <!-- ===== Gate 4 : question ===== -->
+  <circle cx="960" cy="196" r="9" fill="#8C8577"/>
+  <line x1="960" y1="205" x2="960" y2="248" stroke="#C9C1B2" stroke-width="2"/>
+  <g>
+    <rect x="852" y="248" width="228" height="192" rx="12" fill="#FFFFFF" stroke="#DCD5C8" stroke-width="1.8"/>
+    <rect x="852" y="248" width="228" height="6" rx="3" fill="#8C8577"/>
+    <text x="876" y="286" font-size="20" font-weight="700" fill="#12312E">question</text>
+    <rect x="968" y="270" width="90" height="22" rx="11" fill="#EFEBE2"/>
+    <text x="1013" y="286" font-size="12.5" font-weight="700" fill="#6B6459" text-anchor="middle">No block</text>
+    <text x="876" y="312" font-size="13" fill="#0E5C55" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">PostToolUse</text>
+    <line x1="876" y1="326" x2="1056" y2="326" stroke="#EDE7DC" stroke-width="1.5"/>
+    <text x="876" y="350" font-size="13.5" fill="#2E2A24">Blocks — none; no channel</text>
+    <text x="876" y="376" font-size="12.5" fill="#6B6459">After AskUserQuestion: counts</text>
+    <text x="876" y="396" font-size="12.5" fill="#6B6459">calls. Past interview's default 2,</text>
+    <text x="876" y="416" font-size="12.5" fill="#6B6459">it records budget_exceeded.</text>
+  </g>
+
+  <!-- ===== Gate 5 : stop ===== -->
+  <circle cx="1220" cy="196" r="9" fill="#B3382C"/>
+  <line x1="1220" y1="205" x2="1220" y2="248" stroke="#C9C1B2" stroke-width="2"/>
+  <g>
+    <rect x="1112" y="248" width="256" height="192" rx="12" fill="#FFFFFF" stroke="#B3382C" stroke-width="1.8"/>
+    <rect x="1112" y="248" width="256" height="6" rx="3" fill="#B3382C"/>
+    <text x="1136" y="286" font-size="20" font-weight="700" fill="#12312E">stop</text>
+    <rect x="1230" y="270" width="114" height="22" rx="11" fill="#F8E7E4"/>
+    <text x="1287" y="286" font-size="12.5" font-weight="700" fill="#B3382C" text-anchor="middle">Blocks · max 3</text>
+    <text x="1136" y="312" font-size="13" fill="#0E5C55" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">Stop</text>
+    <line x1="1136" y1="326" x2="1344" y2="326" stroke="#EDE7DC" stroke-width="1.5"/>
+    <text x="1136" y="350" font-size="12.5" fill="#2E2A24">Blocks — end with contract unmet</text>
+    <text x="1136" y="376" font-size="13" fill="#6B6459">Runs the completion contract as</text>
+    <text x="1136" y="396" font-size="13" fill="#6B6459">the session tries to end. Any fail</text>
+    <text x="1136" y="416" font-size="13" fill="#6B6459">or unverified blocks the end.</text>
+  </g>
+
+  <!-- ===== Stop gate 3-block cap detail ===== -->
+  <rect x="760" y="504" width="608" height="182" rx="12" fill="#FFFFFF" stroke="#B3382C" stroke-width="1.8"/>
+  <text x="788" y="540" font-size="18" font-weight="700" fill="#12312E">The stop gate's 3-block cap</text>
+
+  <!-- block counter -->
+  <rect x="788" y="562" width="128" height="42" rx="8" fill="#F8E7E4" stroke="#E0A79E" stroke-width="1.2"/>
+  <text x="852" y="580" font-size="12" fill="#B3382C" text-anchor="middle">Block 1</text>
+  <text x="852" y="597" font-size="12.5" fill="#8A3A30" text-anchor="middle">lists failed criteria</text>
+
+  <path d="M 924 583 L 946 583" stroke="#C9C1B2" stroke-width="2"/>
+  <path d="M 946 583 L 938 578 L 938 588 Z" fill="#C9C1B2"/>
+
+  <rect x="954" y="562" width="128" height="42" rx="8" fill="#F8E7E4" stroke="#E0A79E" stroke-width="1.2"/>
+  <text x="1018" y="580" font-size="12" fill="#B3382C" text-anchor="middle">Block 2</text>
+  <text x="1018" y="597" font-size="12.5" fill="#8A3A30" text-anchor="middle">lists failed criteria</text>
+
+  <path d="M 1090 583 L 1112 583" stroke="#C9C1B2" stroke-width="2"/>
+  <path d="M 1112 583 L 1104 578 L 1104 588 Z" fill="#C9C1B2"/>
+
+  <rect x="1120" y="562" width="128" height="42" rx="8" fill="#F8E7E4" stroke="#E0A79E" stroke-width="1.2"/>
+  <text x="1184" y="580" font-size="12" fill="#B3382C" text-anchor="middle">Block 3</text>
+  <text x="1184" y="597" font-size="12.5" fill="#8A3A30" text-anchor="middle">lists failed criteria</text>
+
+  <path d="M 1256 583 L 1278 583" stroke="#C9C1B2" stroke-width="2"/>
+  <path d="M 1278 583 L 1270 578 L 1270 588 Z" fill="#C9C1B2"/>
+
+  <rect x="1286" y="562" width="58" height="42" rx="8" fill="#EFEBE2" stroke="#C9C1B2" stroke-width="1.2"/>
+  <text x="1315" y="588" font-size="12.5" font-weight="700" fill="#6B6459" text-anchor="middle">Allow</text>
+
+  <text x="788" y="634" font-size="13.5" fill="#4A443B">When block_count reaches 3, the gate stands down and lets the session end.</text>
+  <text x="788" y="656" font-size="13.5" fill="#4A443B">A gate that cannot be satisfied must not hold the user hostage.</text>
+  <text x="788" y="678" font-size="13.5" font-weight="700" fill="#B3382C">Standing down still records the verdict: stop.final_verdict is never blank.</text>
+
+  <!-- ===== exit 0 rule ===== -->
+  <rect x="72" y="504" width="640" height="182" rx="12" fill="#0E5C55"/>
+  <text x="100" y="540" font-size="18" font-weight="700" fill="#FFFFFF">Every hook always exits 0</text>
+  <text x="100" y="572" font-size="14" fill="#BFDCD6">A block is JSON on stdout, not an exit code.</text>
+
+  <rect x="100" y="588" width="270" height="34" rx="6" fill="#0A4A44"/>
+  <text x="116" y="610" font-size="13" fill="#9FCCC4" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">PreToolUse → deny</text>
+  <rect x="386" y="588" width="270" height="34" rx="6" fill="#0A4A44"/>
+  <text x="402" y="610" font-size="13" fill="#9FCCC4" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">Stop → block</text>
+
+  <text x="100" y="648" font-size="13.5" fill="#DDEBE8">An exception is logged as one line in .gatekit/runs/hook-errors.log.</text>
+  <text x="100" y="672" font-size="13.5" fill="#DDEBE8">A broken hook degrades to "allow and log"; it never kills the session.</text>
+
+  <!-- ===== Perf note ===== -->
+  <rect x="72" y="716" width="1296" height="60" rx="10" fill="#FFFFFF" stroke="#DCD5C8" stroke-width="1.5"/>
+  <text x="100" y="742" font-size="15" font-weight="700" fill="#12312E">Performance</text>
+  <text x="100" y="764" font-size="13.5" fill="#4A443B">Each gate must finish within 5 seconds on a normal project. Only the Stop gate may take up to 45 seconds, because it runs the contract.</text>
+
+  <!-- ===== Footer table ===== -->
+  <text x="72" y="826" font-size="13" fill="#8C8577" letter-spacing="1">WHEN BLOCKED</text>
+  <text x="72" y="854" font-size="13.5" fill="#4A443B">write — run /gatekit:gate to create and approve criteria. Scope violation: re-slice the task.</text>
+  <text x="72" y="878" font-size="13.5" fill="#4A443B">spawn — add a gatekit-scope fence. On a scope conflict, narrow it or wait for the earlier agent.</text>
+  <text x="760" y="854" font-size="13.5" fill="#4A443B">stop — fix the cause of the criteria in the message and run the contract again.</text>
+  <text x="760" y="878" font-size="13.5" fill="#4A443B">unverified as the cause is usually a timeout: measure, then declare gatekit-budget.</text>
+
+</svg>

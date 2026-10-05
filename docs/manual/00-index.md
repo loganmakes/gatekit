@@ -1,5 +1,7 @@
 # gatekit 사용 설명서
 
+영문판: [docs/manual/en/](en/00-index.md)
+
 gatekit은 Claude Code 플러그인이다. `CLAUDE.md`에 산문으로 적던 규칙을 실제로 실행되는 훅으로 바꾼다. 이 매뉴얼은 12개 문서로 구성되며, 모든 내용은 `docs/ARCHITECTURE.md` 계약과 실제 코드에서 확인한 것만 담았다.
 
 ## 문서 목록
@@ -57,7 +59,7 @@ python3 tools/build_manual_bundle.py
 ```
 
 `dist/gatekit 사용자 매뉴얼.zip`이 생기고, 노션에서 Import → Markdown & CSV로
-올리면 부모 페이지 1개와 하위 페이지 12개 트리로 들어간다.
+올리면 부모 페이지 1개와 하위 페이지 13개(이 색인 + 문서 12개) 트리로 들어간다.
 
 저장소가 정본이다. 내용을 고칠 때는 `docs/manual/`을 고치고 번들을 다시 만들어
 재임포트한다. 노션 쪽만 고치면 두 사본이 갈라진다.

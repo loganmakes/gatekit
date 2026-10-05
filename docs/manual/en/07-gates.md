@@ -1,14 +1,15 @@
 # Hook gates
 
-`plugin/hooks/hooks.json` registers eight scripts. Claude Code reads this file automatically, and it is not listed in `plugin.json`. A duplicate reference makes the plugin fail to load. Separately, the `tokens` gate is not a hook: it is a task gate that a task in `spec/04-tasks.md` declares (see its own section below).
+`plugin/hooks/hooks.json` registers nine scripts. Claude Code reads this file automatically, and it is not listed in `plugin.json`. A duplicate reference makes the plugin fail to load. Separately, the `tokens` gate is not a hook: it is a task gate that a task in `spec/04-tasks.md` declares (see its own section below).
 
 | Gate | Event | Target tools | Blocks? |
 |---|---|---|---|
 | prompt | `UserPromptSubmit` | none | No |
-| write | `PreToolUse` | `Write`, `Edit`, `MultiEdit`, `NotebookEdit` | Yes |
+| write | `PreToolUse` | `Write`, `Edit`, `MultiEdit`, `NotebookEdit`, `apply_patch` | Yes |
 | bash | `PreToolUse` | `Bash` | Yes |
 | powershell | `PreToolUse` | `PowerShell` | Yes |
-| spawn | `PreToolUse` | `Agent`, `Task` | Yes |
+| skill | `PreToolUse` | `Skill` | No (it only arms the Stop gate) |
+| spawn | `PreToolUse` | `Agent`, `Task`, `collaborationspawn_agent` | Yes |
 | question | `PostToolUse` | `AskUserQuestion`, `Write`/`Edit`/`MultiEdit`/`NotebookEdit` | No (there is no channel) |
 | compact | `PreCompact` | none | No |
 | stop | `Stop` | none | Yes (at most 3 times) |
@@ -102,11 +103,23 @@ If the scope cannot be checked, the write is refused. A worker that claims a tas
 
 **Workers do not approve**: when `GATEKIT_TASK_ID` is present, it finds and refuses `approve` inside `Remove-Item Env:GATEKIT_TASK_ID; python …\gatekit.py approve …`, `& python "$env:CLAUDE_PLUGIN_ROOT\bin\gatekit.py" approve …`, `pwsh -Command "…"`, and `Start-Process python -ArgumentList …`. `approve check` and `approve list` are allowed.
 
-**Limits**: it does not look at what programs and scripts invoked by name (`.\build.ps1`, `npm run build`) write. Paths assembled at run time (`-join`, `-f`, `[char]` codes, Base64) are refused before approval but allowed after approval unless they name `.gatekit`. The same goes for COM, .NET, and reflection routes outside the list above, and for cmdlets that modules provide. A skill's `` !`command` `` lines do not pass through the PreToolUse hook, so there is no matcher on the `Skill` tool. Codex reports every shell call as `Bash`, so the Codex layer has no matching hook. Behavior in a real Windows session has not been observed yet (the tests verify parsing only). The rationale is in `docs/decisions/ADR-0028-powershell-tool-gate.md`.
+**Limits**: it does not look at what programs and scripts invoked by name (`.\build.ps1`, `npm run build`) write. Paths assembled at run time (`-join`, `-f`, `[char]` codes, Base64) are refused before approval but allowed after approval unless they name `.gatekit`. The same goes for COM, .NET, and reflection routes outside the list above, and for cmdlets that modules provide. A skill's `` !`command` `` lines do not pass through the PreToolUse hook, so this gate does not see them (the matcher on the `Skill` tool belongs to the skill gate below and does not inspect commands). Codex reports every shell call as `Bash`, so the Codex layer has no matching hook. Behavior in a real Windows session has not been observed yet (the tests verify parsing only). The rationale is in `docs/decisions/ADR-0028-powershell-tool-gate.md`.
+
+## skill gate
+
+**When**: just before a skill is loaded through the `Skill` tool.
+
+**What it does**: if the skill is gatekit's `build` or `verify` (the command `gatekit:build` or the trigger skill `gatekit:gatekit-build` alike), it records `active_pipeline` in the session ledger and re-arms the Stop gate, exactly as typing the command does (ADR-0032). For any other skill it does nothing. It also does nothing in a project without `.gatekit/`.
+
+**Why it is needed**: the Stop gate runs the contract only while `active_pipeline` is `build` or `verify`, and originally only the prompt gate recorded that value. So when the same command started through the `Skill` tool — the model continuing into `/gatekit:verify` after a build, or a trigger skill run by "start the build" — the Stop gate stayed idle and the session could end unverified.
+
+**Scope**: it only arms. Through a tool call the model may start the gate's judging, but never stop it or move a running build to a pipeline the Stop gate does not judge. Turning it off or switching stays with commands the user types.
+
+**Block**: never.
 
 ## spawn gate
 
-**When**: just before a subagent is launched with `Agent` or `Task`.
+**When**: just before a subagent is launched with `Agent` or `Task`. Codex's `collaborationspawn_agent` does not show the prompt to the hook, so it is allowed and recorded as `spawn_unscoped`; that agent's writes still meet the write and bash gates.
 
 **What it requires**: the spawn prompt must contain a `gatekit-scope` fence, and its contents must be a valid JSON object.
 

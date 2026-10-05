@@ -136,10 +136,10 @@ gatekit 훅마다 `t`를 누른 뒤 새 세션을 여세요. gatekit을 업데�
 
 ### Codex (앱과 CLI)
 
-Codex도 같은 마켓플레이스에서 같은 플러그인을 설치합니다. **Windows에서는
-아래 프로젝트 층 방식을 쓰세요**(위의 Codex 한 줄 설치가 준비해 줍니다).
-Windows의 Codex는 훅을 PowerShell로 실행하고, PowerShell 형식은 생성되는
-층에만 들어 있습니다. 플러그인 경로는 `unverified`입니다(ADR-0034).
+Codex도 같은 마켓플레이스에서 같은 플러그인을 설치합니다. Windows에서도 이
+플러그인 경로와 아래 프로젝트 층 방식이 모두 동작합니다. Windows의 Codex는
+훅을 PowerShell로 실행하고, 두 방식 모두 PowerShell 형식을 갖고 있습니다
+(ADR-0034, ADR-0038).
 
 ```
 codex plugin marketplace add gatebound/gatebound

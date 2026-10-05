@@ -142,10 +142,9 @@ business the first time you run a `/gatekit:` command in it.
 
 ### Codex (app and CLI)
 
-Codex installs this same plugin from the same marketplace. **On Windows,
-use the project layer below instead** (the Codex one-liner above sets it
-up): there Codex runs hooks in PowerShell, and only the generated layer
-carries the PowerShell form; the plugin route is `unverified` (ADR-0034).
+Codex installs this same plugin from the same marketplace. On Windows both
+this plugin route and the project layer below work: Codex runs hooks in
+PowerShell there, and both carry the PowerShell form (ADR-0034, ADR-0038).
 
 ```
 codex plugin marketplace add gatebound/gatebound

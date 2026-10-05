@@ -132,6 +132,70 @@ def _cmd_stub(bindir: pathlib.Path, name: str, body: str) -> None:
     (bindir / (name + ".cmd")).write_text("@echo off\r\n" + body, encoding="oem")
 
 
+class TestPluginHooksCarryAWindowsCommand(unittest.TestCase):
+    """ADR-0038: a Codex *plugin* install on Windows runs `commandWindows` too
+    (observed with Codex 0.160.0), so the plugin's own hooks.json carries one.
+    Claude Code ignores the key and runs `command` (observed, Claude Code
+    2.1.289), so the sh chain stays exactly as ADR-0030 pins it."""
+
+    def _hooks(self) -> list:
+        data = json.loads((PLUGIN_DIR / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+        return [h for group in data["hooks"].values() for e in group for h in e["hooks"]]
+
+    def test_every_plugin_hook_has_a_powershell_form_for_the_same_script(self) -> None:
+        from gatekit import hosts
+        hooks = self._hooks()
+        self.assertTrue(hooks)
+        for h in hooks:
+            win = h.get("commandWindows", "")
+            self.assertEqual(hosts.hook_script(win), hosts.hook_script(h["command"]), win)
+            for bad in PS51_REJECTS:
+                self.assertNotIn(bad, win)
+            # the root comes from the environment, never from text a path could break
+            self.assertIn("$env:PLUGIN_ROOT", win)
+            self.assertIn("$env:CLAUDE_PLUGIN_ROOT", win)
+            self.assertNotIn("${CLAUDE_PLUGIN_ROOT}", win)
+            # the host is read from PLUGIN_ROOT (ADR-0019), as for `command`
+            self.assertNotIn("--host", win)
+
+    def test_the_builder_and_the_file_agree(self) -> None:
+        from gatekit import hosts
+        for h in self._hooks():
+            rel = hosts.hook_script(h["command"]).replace("${CLAUDE_PLUGIN_ROOT}/", "", 1)
+            self.assertEqual(h["commandWindows"], hosts.plugin_hook_command_windows(rel))
+
+
+@unittest.skipUnless(os.name == "nt" and shutil.which("powershell"), "needs Windows PowerShell")
+class TestPluginWindowsCommandRuns(unittest.TestCase):
+    """ADR-0038: the plugin form finds the gate under PLUGIN_ROOT (Codex) or,
+    failing that, CLAUDE_PLUGIN_ROOT, whatever characters the folder holds."""
+
+    def _run(self, env_root: dict) -> subprocess.CompletedProcess:
+        from gatekit import hosts
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp) / "it's $here"
+            (root / "gatekit" / "gates").mkdir(parents=True)
+            (root / "gatekit" / "gates" / "gate.py").write_text(
+                "import json, sys\nprint(json.dumps({'seen': json.loads(sys.stdin.read())['tool_name']}))\n",
+                encoding="utf-8")
+            env = {k: v for k, v in os.environ.items() if k not in ("PLUGIN_ROOT", "CLAUDE_PLUGIN_ROOT")}
+            env.update({k: str(root) for k in env_root})
+            return subprocess.run(
+                [shutil.which("powershell"), "-NoProfile", "-NonInteractive", "-Command",
+                 hosts.plugin_hook_command_windows("gatekit/gates/gate.py")],
+                input='{"tool_name": "apply_patch"}', env=env, capture_output=True, text=True, timeout=60)
+
+    def test_plugin_root_is_used(self) -> None:
+        proc = self._run({"PLUGIN_ROOT": 1})
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(json.loads(proc.stdout), {"seen": "apply_patch"})
+
+    def test_claude_plugin_root_is_the_fallback(self) -> None:
+        proc = self._run({"CLAUDE_PLUGIN_ROOT": 1})
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(json.loads(proc.stdout), {"seen": "apply_patch"})
+
+
 class TestCodexWindowsCommand(unittest.TestCase):
     """ADR-0034: Codex on Windows runs a hook command in Windows PowerShell 5.1,
     so the Codex layer carries a `commandWindows` that probes like ADR-0030."""

@@ -146,19 +146,40 @@ def hook_command_windows(script: str, suffix: str = "") -> str:
     Windows, where ``||`` and ``&&`` are parse errors and nothing would run.
     Same order and rules: each name is probed with its output discarded, ``py
     -3`` is last, and no interpreter at all fails aloud."""
-    literal = "'%s'" % script.replace("'", "''")
+    return "$s=%s; %s" % (_ps_literal(script), _ps_chain(suffix))
+
+
+def plugin_hook_command_windows(relative: str, suffix: str = "") -> str:
+    """The ``commandWindows`` of the plugin's own hooks.json (ADR-0038).
+
+    A Codex plugin install on Windows runs it in PowerShell with the plugin
+    root in ``PLUGIN_ROOT`` (and ``CLAUDE_PLUGIN_ROOT``); Claude Code never
+    runs it. The root is read from the environment, so no character in the
+    folder's name can break the command; *relative* is the gate script under
+    the plugin root (``gatekit/gates/write.py``)."""
+    return ("$r=$env:PLUGIN_ROOT; if(-not $r){ $r=$env:CLAUDE_PLUGIN_ROOT }; "
+            "$s=Join-Path $r %s; %s") % (_ps_literal(relative), _ps_chain(suffix))
+
+
+def _ps_literal(text: str) -> str:
+    return "'%s'" % text.replace("'", "''")
+
+
+def _ps_chain(suffix: str) -> str:
+    """Run ``$s`` under the first real Python 3.9+, as :func:`hook_command`."""
     probe = "'import sys;sys.exit(sys.version_info<(3,9))'"
     found = "Get-Command %s -CommandType Application -ErrorAction SilentlyContinue"
     return (
-        "$s=%s; foreach($n in 'python3','python'){ if(%s){ & $n -c %s *>$null; "
+        "foreach($n in 'python3','python'){ if(%s){ & $n -c %s *>$null; "
         "if($LASTEXITCODE -eq 0){ & $n $s%s; exit $LASTEXITCODE } } }; "
         "if(%s){ py -3 $s%s; exit $LASTEXITCODE }; "
         "[Console]::Error.WriteLine('gatekit: no Python 3.9+ found as python3, python or py -3'); exit 1"
-    ) % (literal, found % "$n", probe, suffix, found % "py", suffix)
+    ) % (found % "$n", probe, suffix, found % "py", suffix)
 
 
 _SCRIPT_IN_COMMAND_RE = re.compile(r'"([^"]+\.py)"')
 _SCRIPT_IN_PS_COMMAND_RE = re.compile(r"^\$s='((?:[^']|'')+\.py)'")
+_SCRIPT_IN_PLUGIN_PS_RE = re.compile(r"\$s=Join-Path \$r '((?:[^']|'')+\.py)'")
 
 
 def hook_script(command: str) -> str:
@@ -171,6 +192,9 @@ def hook_script(command: str) -> str:
     ps = _SCRIPT_IN_PS_COMMAND_RE.search(command or "")
     if ps:
         return ps.group(1).replace("''", "'")
+    plugin = _SCRIPT_IN_PLUGIN_PS_RE.search(command or "")
+    if plugin:  # ADR-0038: spelled as the sh form spells it
+        return "${CLAUDE_PLUGIN_ROOT}/" + plugin.group(1).replace("''", "'")
     match = _SCRIPT_IN_COMMAND_RE.search(command or "")
     return match.group(1) if match else ""
 

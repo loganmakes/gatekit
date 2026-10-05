@@ -23,7 +23,7 @@ import sys
 import tempfile
 import threading
 import time
-from typing import Optional
+from typing import Optional, Tuple
 
 from gatekit import config, names, paths, runcheck, spec, verdict, workers
 
@@ -2075,9 +2075,81 @@ def status(root, job_id: Optional[str] = None) -> dict:
 _IS_WINDOWS = os.name == "nt"
 
 
+#: FILETIME counts 100 ns intervals from 1601-01-01; Unix time starts 1970.
+_FILETIME_EPOCH_OFFSET_S = 11644473600.0
+#: kernel32 values (ADR-0039).
+_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+_STILL_ACTIVE = 259
+_ERROR_INVALID_PARAMETER = 87
+
+
+def _filetime_to_epoch(high: int, low: int) -> float:
+    """A Windows FILETIME, as its two 32-bit halves, in Unix seconds."""
+    return ((int(high) << 32) | int(low)) / 1e7 - _FILETIME_EPOCH_OFFSET_S
+
+
+def _win_process_info(pid: int) -> Optional[Tuple[bool, Optional[float]]]:
+    """ADR-0039: ``(alive, created_at)`` for *pid* through kernel32, or None.
+
+    No child process is started, so a busy machine cannot push the answer
+    past a timeout the way a PowerShell probe could. ``created_at`` is Unix
+    seconds, or None when the process is alive but its times are unreadable.
+    None means "no answer" (not Windows, ctypes unavailable, access denied,
+    any API failure): callers fall back to tasklist and PowerShell.
+    """
+    # A real Windows pid is a positive multiple of 4 that fits a DWORD;
+    # anything else (a corrupt status.json) would be masked or rounded down
+    # by the kernel onto another process, so it gets no native answer.
+    if not isinstance(pid, int) or pid <= 0 or pid > 0xFFFFFFFF or pid % 4:
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    except (ImportError, AttributeError, OSError, ValueError):
+        return None
+    try:
+        open_process = kernel32.OpenProcess
+        open_process.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        open_process.restype = wintypes.HANDLE
+        exit_code_of = kernel32.GetExitCodeProcess
+        exit_code_of.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        exit_code_of.restype = wintypes.BOOL
+        times_of = kernel32.GetProcessTimes
+        times_of.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
+        times_of.restype = wintypes.BOOL
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = [wintypes.HANDLE]
+        close_handle.restype = wintypes.BOOL
+
+        handle = open_process(_PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+        if not handle:
+            if ctypes.get_last_error() == _ERROR_INVALID_PARAMETER:
+                return (False, None)  # no process has this pid
+            return None  # e.g. access denied: it may exist; let the fallback decide
+        try:
+            code = wintypes.DWORD()
+            if not exit_code_of(handle, ctypes.byref(code)):
+                return None
+            if code.value != _STILL_ACTIVE:
+                return (False, None)  # exited; the handle only keeps its record
+            created, exited, kernel, user = (wintypes.FILETIME() for _ in range(4))
+            if not times_of(handle, ctypes.byref(created), ctypes.byref(exited),
+                            ctypes.byref(kernel), ctypes.byref(user)):
+                return (True, None)
+            return (True, _filetime_to_epoch(created.dwHighDateTime, created.dwLowDateTime))
+        finally:
+            close_handle(handle)
+    except Exception:  # a probe must never break `jobs stop`
+        return None
+
+
 def _pid_alive(pid: int) -> bool:
     """True when a process with *pid* exists, without disturbing it."""
     if _IS_WINDOWS:
+        info = _win_process_info(pid)
+        if info is not None:
+            return info[0]
         try:
             out = subprocess.run(
                 ["tasklist", "/FI", "PID eq %d" % pid, "/FO", "CSV", "/NH"],
@@ -2094,8 +2166,19 @@ def _pid_alive(pid: int) -> bool:
 
 
 def _process_age_s(pid: int) -> Optional[float]:
-    """Seconds since `pid` started, via `ps -o etime=`; None when unknown."""
+    """Seconds since `pid` started, via `ps -o etime=`; None when unknown.
+
+    On Windows the kernel32 probe answers first (ADR-0039); PowerShell is the
+    fallback when it cannot.
+    """
     if _IS_WINDOWS:
+        info = _win_process_info(pid)
+        if info is not None:
+            alive, created = info
+            if not alive:
+                return None
+            if created is not None:
+                return max(0.0, time.time() - created)
         script = (
             "((Get-Date) - (Get-Process -Id %d).StartTime).TotalSeconds"
             ".ToString([Globalization.CultureInfo]::InvariantCulture)" % pid

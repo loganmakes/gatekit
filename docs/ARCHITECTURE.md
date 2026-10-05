@@ -282,8 +282,10 @@ through the binary buffers, whatever the console's locale encoding. The
 write and Bash gates read Git Bash's `/c/<dir>/…` as `C:/<dir>/…` on Windows
 (`paths.from_msys`). `paths.expand_argv` also resolves a bare `argv[0]`
 through `shutil.which` (so `npm` finds `npm.cmd`), and `jobs.py` process
-control uses `tasklist` / PowerShell / `taskkill /T /F` on Windows, where
-`os.kill(pid, 0)` would terminate the process instead of probing it.
+control on Windows reads liveness and age from kernel32 through `ctypes`
+(ADR-0039; `tasklist` / PowerShell only when that gives no answer) and ends a
+worker with `taskkill /T /F`, where `os.kill(pid, 0)` would terminate the
+process instead of probing it.
 On Windows Claude Code's `PowerShell` tool is the primary shell wherever it
 is enabled (and the only one without Git Bash); its calls meet the
 powershell gate below (ADR-0028).
@@ -1103,8 +1105,9 @@ ADR-0009 adds four rules to the runner:
   before the task moves to `gating`. `jobs stop [--job ID]` writes `stop.json`
   in the job dir (the runner checks it before each task and after each worker
   returns), and for each task still in `running` — never `gating` — whose
-  recorded pid is alive **and** whose `ps -o etime=` age agrees with
-  `pid_started_at` within `STOP_PID_AGE_TOLERANCE_S`, calls
+  recorded pid is alive **and** whose age (`ps -o etime=`; kernel32 on
+  Windows, ADR-0039) agrees with `pid_started_at` within
+  `STOP_PID_AGE_TOLERANCE_S`, calls
   `_terminate_pid` (SIGTERM, `STOP_GRACE_S` seconds, then SIGKILL). A pid
   that fails either check is listed in the result's `skipped`, never
   signalled. Every running or queued task is recorded `stopped` and

@@ -15,6 +15,8 @@ gatekit의 모든 검사는 `ok` / `warn` / `fail` / `unverified` 중 하나를 
 
 집계 규칙은 하나라도 `fail`이면 `fail`, 아니면 하나라도 `unverified`면 `unverified`, 아니면 하나라도 `warn`이면 `warn`, 그 외 `ok`다.
 
+위 그림이 `unverified`로 가는 경로를 모두 보여준다. 기준 하나가 근거 없이 끝나거나, 계약을 믿을 수 없어 기준을 하나도 돌리기 전에 실행 전체가 멈춘다.
+
 ### 왜 3개가 아니라 4개인가
 
 세 개짜리 어휘에서는 "확인하지 못했다"를 통과나 실패 중 하나로 반올림해야 한다. 통과로 반올림하면 시간 초과된 테스트가 통과로 보고된다. 실패로 반올림하면 아직 실행할 수 없는 검사가 결함으로 보고되어 신뢰를 잃는다. 네 번째 상태가 그 반올림을 없앤다.
@@ -70,7 +72,7 @@ UI가 있는 프로젝트는 `/gatekit:mockup`이 실제로 클릭 가능한 HTM
 
 `spec/05-gate.md`의 `gatekit-criterion` 펜스들을 `.gatekit/contract.json`으로 파생시킨 것이다. 각 기준은 셸 없이 실행되는 argv 리스트, 기대 종료 코드, 개별 타임아웃, 산출물 목록으로 이루어진다.
 
-`contract run`이 프로젝트 루트를 작업 디렉터리로 각 기준을 실행한다. 전체 예산은 기본 45초이며 `gatekit-budget` 펜스로 최대 600초까지 올릴 수 있다. 타임아웃이나 예산 소진은 `unverified`이고 절대 `ok`가 아니다. 테스트 러너가 테스트를 하나도 돌리지 않고 성공으로 끝난 경우도 `unverified`다(ADR-0022). 수집한 테스트가 전부 건너뛰어진(skip) 경우도 같다. 통과한 테스트가 하나도 없으면 증명한 것이 없기 때문이다. 판정 사유에는 `all tests skipped (<서명 id>; exit N)`가 남는다. 일부만 건너뛰고 나머지가 통과했으면 그대로 `ok`다. 단, 통과는 러너 출력에 보여야 한다. unittest에서 건너뛴 subTest가 통과를 가리면(`s`와 `OK (skipped=N)`만 출력) 구별할 수 없어 `unverified`다(ADR-0022 개정 A). 기준의 argv가 가리키는 채점 파일 — argv[0]로 실행하는 스크립트, 또는 테스트처럼 생긴 파일(`tests/`·`e2e/` 등의 디렉터리 안, `test_*`·`*.test.*`·`*.spec.*` 같은 이름) — 은 `contract derive` 때 해시를 남기고, `05-gate.md`를 승인할 때 그 해시도 함께 고정된다. 승인 뒤 그 파일이 바뀌거나 사라지면 통과했더라도 `unverified`이고, 다시 derive만 해서는 풀리지 않는다(`grading_unapproved`). 의도한 변경이면 `/gatekit:gate`를 다시 실행해 재승인하고, 아니면 변경을 되돌린다. `grep … src/app.py`처럼 검사 대상인 소스 파일, `spec/tokens.json`·`spec/02-design.md`처럼 최상위 `spec/` 아래의 명세 파일(이 폴더에서는 `user_spec.rb`처럼 이름이 테스트 모양인 파일만 센다), `dist/` 같은 빌드 산출물, `npm test`처럼 파일을 가리키지 않거나 디렉터리·글롭만 가리키는 명령은 이 확인을 받지 않으므로, 확인을 원하면 argv에 테스트 파일을 적는다(ADR-0023). 선언한 산출물이 없으면 `fail`이다.
+`contract run`이 프로젝트 루트를 작업 디렉터리로 각 기준을 실행한다. 전체 예산은 기본 45초이며 `gatekit-budget` 펜스로 최대 600초까지 올릴 수 있다. 타임아웃이나 예산 소진은 `unverified`이고 절대 `ok`가 아니다. 테스트 러너가 테스트를 하나도 돌리지 않고 성공으로 끝난 경우도 `unverified`다(ADR-0022). 수집한 테스트가 전부 건너뛰어진(skip) 경우도 같다. 통과한 테스트가 하나도 없으면 증명한 것이 없기 때문이다. 판정 사유에는 `all tests skipped (<서명 id>; exit N)`가 남는다. 일부만 건너뛰고 나머지가 통과했으면 그대로 `ok`다. 단, 통과는 러너 출력에 보여야 한다. unittest에서 건너뛴 subTest가 통과를 가리면(`s`와 `OK (skipped=N)`만 출력) 구별할 수 없어 `unverified`다(ADR-0022 개정 A). 러너가 필요한 것 — 이미 쓰이는 포트의 웹 서버 같은 — 을 띄우지 못한 경우도 `unverified`이고, 사유는 `could not start the runner`다. 코드는 판정되지 않았다(ADR-0031). 기준의 argv가 가리키는 채점 파일 — argv[0]로 실행하는 스크립트, 또는 테스트처럼 생긴 파일(`tests/`·`e2e/` 등의 디렉터리 안, `test_*`·`*.test.*`·`*.spec.*` 같은 이름) — 은 `contract derive` 때 해시를 남기고, `05-gate.md`를 승인할 때 그 해시도 함께 고정된다. 승인 뒤 그 파일이 바뀌거나 사라지면 통과했더라도 `unverified`이고, 다시 derive만 해서는 풀리지 않는다(`grading_unapproved`). 의도한 변경이면 `/gatekit:gate`를 다시 실행해 재승인하고, 아니면 변경을 되돌린다. `grep … src/app.py`처럼 검사 대상인 소스 파일, `spec/tokens.json`·`spec/02-design.md`처럼 최상위 `spec/` 아래의 명세 파일(이 폴더에서는 `user_spec.rb`처럼 이름이 테스트 모양인 파일만 센다), `dist/` 같은 빌드 산출물, `npm test`처럼 파일을 가리키지 않거나 디렉터리·글롭만 가리키는 명령은 이 확인을 받지 않으므로, 확인을 원하면 argv에 테스트 파일을 적는다(ADR-0023). 선언한 산출물이 없으면 `fail`이다.
 
 **이게 없으면**: "완료"가 모델의 자기 보고로만 존재한다.
 

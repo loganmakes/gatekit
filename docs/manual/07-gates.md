@@ -42,7 +42,7 @@
 
 ### 규칙 (a) 스펙 먼저
 
-`enforce_spec_before_code`가 켜져 있고 `spec/` 디렉터리가 존재하는데 `spec/05-gate.md` 승인이 `ok`가 아니면, 아래 허용 목록 밖의 쓰기를 거부한다.
+`enforce_spec_before_code`가 켜져 있고 `spec/`에 gatekit 스펙 파일이 하나라도 있는데 `spec/05-gate.md` 승인이 `ok`가 아니면, 아래 허용 목록 밖의 쓰기를 거부한다. gatekit 스펙 파일이 하나도 없는 `spec/` — RSpec 프로젝트의 `spec/`이나 빈 `spec/` — 은 치지 않는다(ADR-0036).
 
 ```text
 spec/**
@@ -52,7 +52,7 @@ README*
 *.md   (루트 레벨만)
 ```
 
-이 허용 목록이 있는 이유는 게이트를 열어줄 스펙 자체를 쓸 수 있어야 하기 때문이다.
+이 허용 목록이 있는 이유는 게이트를 열어줄 스펙 자체를 쓸 수 있어야 하기 때문이다. 목록에 `.gatekit/**`가 있지만 규칙 (c)를 먼저 보므로, 승인 전에 상태 디렉터리에서 실제로 쓸 수 있는 것은 `config.json`과 `eval/**`뿐이다.
 
 **차단됐을 때 할 일**: `/gatekit:gate`를 실행해 완료 기준을 만들고 사용자가 승인한다. 급하면 `spec/`·`docs/`·루트 마크다운에 먼저 쓴다. 차단 메시지에 현재 승인 상태(`fail` 또는 `unverified`)와 막힌 경로가 나온다.
 
@@ -79,7 +79,7 @@ README*
 
 **하는 일**: 명령 문자열을 실행하지 않고 읽어서 그 명령이 쓸 파일을 뽑아낸 뒤, 각 경로를 write 게이트와 **같은 함수**로 판정한다. 리다이렉션(`>`, `>>`, `&>`), `tee`, `sed -i`, `perl -i`, `cp`/`mv`/`ln`/`install`/`rsync`의 목적지, `touch`/`rm`/`mkdir`/`truncate`/`chmod`/`chown`의 대상, `dd of=`, 그리고 `sort -o`·`curl -o`·`wget -O`·`tar -C`/`-f`·`unzip -d`·`zip`처럼 출력 경로가 인자에 그대로 보이는 도구를 인식한다. `cd`는 `;`, `&&`, `|`, 줄바꿈을 넘어 추적하고, `VAR=`·`sudo`·`env`·`nohup` 접두는 벗기며, 히어독 본문과 `/dev/*`는 무시하고, `sh -c "…"`는 재귀로 읽는다.
 
-**규칙이 꺼져 있을 때**: 규칙 (a)·(b)가 거부할 수 없는 상태(`GATEKIT_TASK_ID` 없음, 게이트 승인됨 또는 `spec/` 없음)에서도 명령은 읽지만, 아래 보호 상태 점검만 그 결과로 판정한다. 나머지는 판정하지 않고 통과시킨다. 읽기는 정적이고 가벼워서 평소 세션이 체감할 비용은 없다.
+**규칙이 꺼져 있을 때**: 규칙 (a)·(b)가 거부할 수 없는 상태(`GATEKIT_TASK_ID` 없음, 게이트 승인됨 또는 `spec/`에 gatekit 스펙 파일 없음)에서도 명령은 읽지만, 아래 보호 상태 점검만 그 결과로 판정한다. 나머지는 판정하지 않고 통과시킨다. 읽기는 정적이고 가벼워서 평소 세션이 체감할 비용은 없다.
 
 **판별 불가는 거부**: 규칙이 살아 있는데 쓰기 대상을 알 수 없으면 거부한다. 경로 안의 `$VAR`나 백틱, 알 수 없는 디렉터리로 `cd`, `eval`, `xargs`, `patch`, `trap`, `find -exec`, 작업 트리를 바꾸는 `git` 하위 명령(`apply`, `checkout`, `restore`, `reset`, `merge`, `stash`, `init`, `clone` 등), 인라인 인터프리터 코드(`python3 -c`, `node -e`), 스크립트를 표준 입력으로 받는 인터프리터(`python3 <<PY`, `echo … | node`, `python3 < s.py` — 스크립트 파일이나 `-m 모듈`이 인자에 있으면 해당 없음), `awk`, 명령줄 편집기(`ed`, `ex`, `vim`, `nano`), `busybox`, 파일명을 스스로 정하는 다운로드(`curl -O`, 옵션 없는 `wget`), 프로세스 치환, 짝이 안 맞는 따옴표가 여기 해당한다. 거부 메시지는 이유와 대안(Write/Edit 도구, 리터럴 경로)을 말한다. `unverified`를 `ok`로 반올림하지 않는 것과 같은 원칙이다.
 
@@ -175,7 +175,7 @@ README*
 
 **차단 조건**: 계약 실행 결과에 `fail`이나 `unverified` 기준이 하나라도 있고, `block_count`가 3 미만이고, `stop_hook_active`가 참이 아닐 때. 차단 메시지에 실패한 기준 목록이 들어가고 `block_count`가 1 증가한다.
 
-계약이 stale이면 다른 메시지가 나간다. `contract derive`를 실행하고 작업을 마치라는 안내다.
+계약이 stale이면 다른 메시지가 나간다. `contract derive`를 실행하고 작업을 마치라는 안내다. 다른 계약 실행(평가자 또는 `contract run`)이 30초 동안 잠금을 쥐고 있었으면 아무것도 판정하지 않고 기록하지도 않은 `unverified`가 되고(`contract_busy`, ADR-0031), 메시지가 그렇게 알린다. 실패도 통과도 아니다 — 그 실행이 끝난 뒤 턴을 다시 마친다.
 
 **무결성 점검 (ADR-0027)**: 기준을 하나라도 실행하기 전에, 그리고 앞 판정 기록을 재사용하기 전에 세 가지를 순서대로 본다. `contract_stale`(위), `gate_not_approved`(`approve check spec/05-gate.md`가 `ok`가 아님 — 승인이 없거나, 승인 뒤 파일이 바뀌었거나, 고정한 채점 파일이 계약과 다름), `contract_mismatch`(`05-gate.md`를 메모리에서 다시 파싱한 결과가 `contract.json`과 기준 필드·순서·예산 중 하나라도 다름). 어느 하나라도 걸리면 기준 없이 `unverified`이고, 다른 `unverified`처럼 차단한다. `contract run`도 같은 점검을 한다(`contract baseline`은 승인 전에 돌기 때문에 승인 점검만 뺀다). 판정 기록 `runs/contract-last.json`에는 그때의 `contract.json` 해시(`contract_sha256`)가 함께 남고, 해시가 다르거나 없으면 재사용하지 않는다.
 

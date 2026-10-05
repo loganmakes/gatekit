@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1312" viewBox="0 0 1440 1312" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1362" viewBox="0 0 1440 1362" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif">
 
-  <rect x="0" y="0" width="1440" height="1312" fill="#FBF9F5"/>
+  <rect x="0" y="0" width="1440" height="1362" fill="#FBF9F5"/>
 
   <!-- ===== Title ===== -->
   <text x="72" y="72" font-size="34" font-weight="700" fill="#12312E">The four-state verdict vocabulary</text>
@@ -103,7 +103,7 @@
   <!-- ===== Where unverified comes from ===== -->
   <text x="72" y="616" font-size="20" fill="#12312E" font-weight="700">Where unverified comes from</text>
   <text x="72" y="642" font-size="14.5" fill="#6B6459">Two routes: one criterion ends with no evidence, or the contract cannot be trusted, so no criterion runs at all.</text>
-  <rect x="72" y="664" width="640" height="340" rx="12" fill="#FFFFFF" stroke="#4A5764" stroke-width="1.8"/>
+  <rect x="72" y="664" width="640" height="390" rx="12" fill="#FFFFFF" stroke="#4A5764" stroke-width="1.8"/>
   <rect x="72" y="664" width="640" height="8" rx="4" fill="#4A5764"/>
   <text x="96" y="700" font-size="16" fill="#12312E" font-weight="700">One criterion is unverified</text>
   <text x="96" y="722" font-size="13" fill="#6B6459">It ended without evidence: it did not run, or proved nothing</text>
@@ -129,10 +129,15 @@
   <text x="364" y="930" font-size="12.5" fill="#5A6672">The runner succeeded, but no test passed</text>
   <line x1="96" y1="940" x2="688" y2="940" stroke="#EDE7DC" stroke-width="1.2"/>
   <rect x="96" y="950" width="252" height="28" rx="6" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.2"/>
-  <text x="108" y="969" font-size="12" fill="#2F3A45" font-weight="600" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">grading file changed</text>
-  <text x="364" y="961" font-size="14" fill="#12312E" font-weight="700">Grading file changed (ADR-0023)</text>
-  <text x="364" y="980" font-size="12.5" fill="#5A6672">ok is held back even if it passed; re-approve or revert</text>
-  <rect x="728" y="664" width="640" height="340" rx="12" fill="#FFFFFF" stroke="#4A5764" stroke-width="1.8"/>
+  <text x="108" y="969" font-size="12" fill="#2F3A45" font-weight="600" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">could not start the runner</text>
+  <text x="364" y="961" font-size="14" fill="#12312E" font-weight="700">Runner could not start (ADR-0031)</text>
+  <text x="364" y="980" font-size="12.5" fill="#5A6672">A web server or similar did not start; code not judged</text>
+  <line x1="96" y1="990" x2="688" y2="990" stroke="#EDE7DC" stroke-width="1.2"/>
+  <rect x="96" y="1000" width="252" height="28" rx="6" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.2"/>
+  <text x="108" y="1019" font-size="12" fill="#2F3A45" font-weight="600" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">grading file changed</text>
+  <text x="364" y="1011" font-size="14" fill="#12312E" font-weight="700">Grading file changed (ADR-0023)</text>
+  <text x="364" y="1030" font-size="12.5" fill="#5A6672">ok is held back even if it passed; re-approve or revert</text>
+  <rect x="728" y="664" width="640" height="390" rx="12" fill="#FFFFFF" stroke="#4A5764" stroke-width="1.8"/>
   <rect x="728" y="664" width="640" height="8" rx="4" fill="#4A5764"/>
   <text x="752" y="700" font-size="16" fill="#12312E" font-weight="700">The whole run is unverified before any criterion</text>
   <text x="752" y="722" font-size="13" fill="#6B6459">The contract cannot be trusted, so nothing runs</text>
@@ -163,42 +168,42 @@
   <text x="984" y="980" font-size="12.5" fill="#5A6672">Another contract run held it for over 30 s</text>
 
   <!-- ===== Aggregation ===== -->
-  <text x="72" y="1052" font-size="20" fill="#12312E" font-weight="700">Aggregation — the most severe verdict wins</text>
-  <rect x="72" y="1072" width="640" height="204" rx="12" fill="#FFFFFF" stroke="#DCD5C8" stroke-width="1.5"/>
-  <rect x="96" y="1092" width="76" height="34" rx="6" fill="#B3382C"/>
-  <text x="134" y="1115" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">fail</text>
-  <text x="186" y="1116" font-size="18" fill="#6B6459" font-weight="700" text-anchor="middle">&gt;</text>
-  <rect x="200" y="1092" width="132" height="34" rx="6" fill="#4A5764"/>
-  <text x="266" y="1115" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">unverified</text>
-  <text x="346" y="1116" font-size="18" fill="#6B6459" font-weight="700" text-anchor="middle">&gt;</text>
-  <rect x="360" y="1092" width="76" height="34" rx="6" fill="#8A6410"/>
-  <text x="398" y="1115" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">warn</text>
-  <text x="450" y="1116" font-size="18" fill="#6B6459" font-weight="700" text-anchor="middle">&gt;</text>
-  <rect x="464" y="1092" width="60" height="34" rx="6" fill="#1E7A4C"/>
-  <text x="494" y="1115" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">ok</text>
-  <text x="96" y="1158" font-size="13.5" fill="#4A443B">Any fail → fail; otherwise any unverified → unverified;</text>
-  <text x="96" y="1180" font-size="13.5" fill="#4A443B">otherwise any warn → warn; else ok.</text>
-  <line x1="96" y1="1196" x2="688" y2="1196" stroke="#EDE7DC" stroke-width="1.2"/>
-  <text x="96" y="1218" font-size="13" fill="#2F3A45">· If no criterion was judged at all, the total is unverified, not ok.</text>
-  <text x="96" y="1242" font-size="13" fill="#2F3A45">· If every criterion that ran is ok but the Stop budget deferred</text>
-  <text x="108" y="1262" font-size="13" fill="#2F3A45">others, the total is unverified (deferred_by_stop_budget, ADR-0024).</text>
-  <rect x="728" y="1072" width="640" height="204" rx="12" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.8"/>
-  <text x="752" y="1104" font-size="16" fill="#12312E" font-weight="700">Real case — Quicknote stage 6, verify</text>
-  <text x="752" y="1128" font-size="13" fill="#3E4A56">An independent evaluator ran 8 criteria.</text>
-  <rect x="752" y="1144" width="34" height="26" rx="4" fill="#1E7A4C"/>
-  <rect x="790" y="1144" width="34" height="26" rx="4" fill="#1E7A4C"/>
-  <rect x="828" y="1144" width="34" height="26" rx="4" fill="#1E7A4C"/>
-  <rect x="866" y="1144" width="34" height="26" rx="4" fill="#1E7A4C"/>
-  <rect x="904" y="1144" width="34" height="26" rx="4" fill="#1E7A4C"/>
-  <rect x="942" y="1144" width="34" height="26" rx="4" fill="#1E7A4C"/>
-  <rect x="980" y="1144" width="34" height="26" rx="4" fill="#4A5764"/>
-  <rect x="1018" y="1144" width="34" height="26" rx="4" fill="#4A5764"/>
-  <path d="M 1064 1157 L 1090 1157" stroke="#9AA4AE" stroke-width="2.5"/>
-  <path d="M 1098 1157 L 1088 1151 L 1088 1163 Z" fill="#9AA4AE"/>
-  <rect x="1106" y="1140" width="140" height="34" rx="6" fill="#4A5764"/>
-  <text x="1176" y="1162" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">unverified</text>
-  <text x="752" y="1194" font-size="12.5" fill="#2F3A45">6 × ok · 2 × unverified (timeout)</text>
-  <text x="752" y="1226" font-size="13" fill="#3E4A56">Not an implementation defect: budgets 5 s / 10 s &lt; measured 6.6 s / 24.5 s.</text>
-  <text x="752" y="1250" font-size="13" fill="#2F3A45" font-weight="700">Declared gatekit-budget 180 s from the measured 49 s, re-approved → 8/8 ok.</text>
+  <text x="72" y="1102" font-size="20" fill="#12312E" font-weight="700">Aggregation — the most severe verdict wins</text>
+  <rect x="72" y="1122" width="640" height="204" rx="12" fill="#FFFFFF" stroke="#DCD5C8" stroke-width="1.5"/>
+  <rect x="96" y="1142" width="76" height="34" rx="6" fill="#B3382C"/>
+  <text x="134" y="1165" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">fail</text>
+  <text x="186" y="1166" font-size="18" fill="#6B6459" font-weight="700" text-anchor="middle">&gt;</text>
+  <rect x="200" y="1142" width="132" height="34" rx="6" fill="#4A5764"/>
+  <text x="266" y="1165" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">unverified</text>
+  <text x="346" y="1166" font-size="18" fill="#6B6459" font-weight="700" text-anchor="middle">&gt;</text>
+  <rect x="360" y="1142" width="76" height="34" rx="6" fill="#8A6410"/>
+  <text x="398" y="1165" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">warn</text>
+  <text x="450" y="1166" font-size="18" fill="#6B6459" font-weight="700" text-anchor="middle">&gt;</text>
+  <rect x="464" y="1142" width="60" height="34" rx="6" fill="#1E7A4C"/>
+  <text x="494" y="1165" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">ok</text>
+  <text x="96" y="1208" font-size="13.5" fill="#4A443B">Any fail → fail; otherwise any unverified → unverified;</text>
+  <text x="96" y="1230" font-size="13.5" fill="#4A443B">otherwise any warn → warn; else ok.</text>
+  <line x1="96" y1="1246" x2="688" y2="1246" stroke="#EDE7DC" stroke-width="1.2"/>
+  <text x="96" y="1268" font-size="13" fill="#2F3A45">· If no criterion was judged at all, the total is unverified, not ok.</text>
+  <text x="96" y="1292" font-size="13" fill="#2F3A45">· If every criterion that ran is ok but the Stop budget deferred</text>
+  <text x="108" y="1312" font-size="13" fill="#2F3A45">others, the total is unverified (deferred_by_stop_budget, ADR-0024).</text>
+  <rect x="728" y="1122" width="640" height="204" rx="12" fill="#F1F3F5" stroke="#4A5764" stroke-width="1.8"/>
+  <text x="752" y="1154" font-size="16" fill="#12312E" font-weight="700">Real case — Quicknote stage 6, verify</text>
+  <text x="752" y="1178" font-size="13" fill="#3E4A56">An independent evaluator ran 8 criteria.</text>
+  <rect x="752" y="1194" width="34" height="26" rx="4" fill="#1E7A4C"/>
+  <rect x="790" y="1194" width="34" height="26" rx="4" fill="#1E7A4C"/>
+  <rect x="828" y="1194" width="34" height="26" rx="4" fill="#1E7A4C"/>
+  <rect x="866" y="1194" width="34" height="26" rx="4" fill="#1E7A4C"/>
+  <rect x="904" y="1194" width="34" height="26" rx="4" fill="#1E7A4C"/>
+  <rect x="942" y="1194" width="34" height="26" rx="4" fill="#1E7A4C"/>
+  <rect x="980" y="1194" width="34" height="26" rx="4" fill="#4A5764"/>
+  <rect x="1018" y="1194" width="34" height="26" rx="4" fill="#4A5764"/>
+  <path d="M 1064 1207 L 1090 1207" stroke="#9AA4AE" stroke-width="2.5"/>
+  <path d="M 1098 1207 L 1088 1201 L 1088 1213 Z" fill="#9AA4AE"/>
+  <rect x="1106" y="1190" width="140" height="34" rx="6" fill="#4A5764"/>
+  <text x="1176" y="1212" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">unverified</text>
+  <text x="752" y="1244" font-size="12.5" fill="#2F3A45">6 × ok · 2 × unverified (timeout)</text>
+  <text x="752" y="1276" font-size="13" fill="#3E4A56">Not an implementation defect: budgets 5 s / 10 s &lt; measured 6.6 s / 24.5 s.</text>
+  <text x="752" y="1300" font-size="13" fill="#2F3A45" font-weight="700">Declared gatekit-budget 180 s from the measured 49 s, re-approved → 8/8 ok.</text>
 
 </svg>

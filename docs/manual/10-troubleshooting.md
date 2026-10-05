@@ -19,7 +19,7 @@ gatekit을 쓰다 보면 **막히는 일이 자주 생긴다.** 그게 이 도�
 
 | 증상 | 원인 | 처방 |
 |---|---|---|
-| 훅이 전혀 안 먹힘 | 플러그인이 설치되지 않았거나 `settings.json`의 `enabledPlugins`에서 비활성 | `/gatekit:doctor` 2번 축 확인 후 `/plugin install gatekit` 또는 `/plugin enable gatekit@gatekit`. 그다음 Claude Code 재시작 |
+| 훅이 전혀 안 먹힘 | 플러그인이 설치되지 않았거나 `settings.json`의 `enabledPlugins`에서 비활성 | `/gatekit:doctor` 2번 축 확인 후 `/plugin install gatekit@gatekit` 또는 `/plugin enable gatekit@gatekit`. 그다음 Claude Code 재시작 |
 | 설치했는데 여전히 안 먹힘 | 현재 세션이 구 버전을 로드한 상태 | Claude Code 재시작 |
 | `/gatekit:doctor` 2번 축이 `fail`이고 "more than one plugin of this name family" | gatekit과 gatebound(이름이 바뀐 뒤의 플러그인)가 동시에 켜짐 — 사용자 또는 프로젝트 `settings.json`의 `enabledPlugins`, 또는 Codex 플러그인 캐시에 둘 다 있음. 구 플러그인이 **사용자** 설정(`~/.claude/settings.json` 또는 `$CLAUDE_CONFIG_DIR`)에서 켜져 있고 설치 목록과 플러그인 캐시 디렉터리에도 있으면 새 플러그인의 Stop·질문 게이트는 쉬고 프롬프트 훅이 세션당 한 번 경고한다. 프로젝트 설정은 구 플러그인을 끌 수만 있고 켤 수는 없으며, 이 판단은 세션의 첫 프롬프트에서 한 번만 내려 원장에 기록한다(세션 도중 설정을 바꿔도 다음 세션부터 적용, ADR-0029 개정) | 처방에 나온 대로 하나를 끈다(`/plugin disable <키>`). 쓰기·Bash·spawn 게이트는 둘 다 돌아도 같은 거부만 낸다 (ADR-0029) |
 | `/gatekit:doctor` 3번 축이 `fail`이고 "both .gatebound/ and .gatekit/ exist" | 프로젝트에 상태 디렉터리가 두 개. 훅은 **현재 이름**(`.gatekit/`)의 디렉터리가 있으면 다른 쪽에 무엇이 있든 언제나 그쪽을 쓴다. 다른 이름의 디렉터리는 현재 이름의 디렉터리가 없을 때만 읽는다(이름 변경 뒤 아직 옮기지 않은 프로젝트, `migrate --to`로 옮긴 프로젝트). 심볼릭 링크·정션(재분석 지점)이거나 실제 경로가 프로젝트 루트 바로 아래가 아닌 상태 디렉터리는 아예 후보에서 뺀다 | 쓰지 않는 쪽에서 필요한 것만 옮기고 그 디렉터리를 터미널에서 지운다(세션 안에서는 상태 보호 규칙이 거부한다). 그동안 `migrate`는 거부한다 (ADR-0029) |

@@ -63,8 +63,6 @@ What remains is the rename itself and its documentation.
   the package directory and launcher, `approval.WORKER_ENV`, the skill
   directory prefix in `hosts.install`, the Codex command rewrite, template
   fences and every user-facing message.
-- **English manual.** `docs/manual/` gets an English edition; today it is
-  Korean only.
 - **Migration guide.** One page: what changes, what keeps working, and the
   commands to run (`migrate --apply`), in English and Korean.
 - **README and URLs.** README (en/ko), the marketplace manifest and links move

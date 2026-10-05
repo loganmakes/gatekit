@@ -298,7 +298,7 @@ spec/
   게이트, CLI, 실전 예제, 문제 해결, 설계 결정을 담았습니다.
   `docs/manual/00-index.md`부터 읽으시면 되고, 빨리 감을 잡고 싶다면
   `docs/manual/01-what-and-why.md`의 "첫 30분" 절부터 보고 바로
-  실행해도 됩니다.
+  실행해도 됩니다. 영문판은 `docs/manual/en/`에 있습니다.
 - `docs/QUICKSTART.md` — 설치부터 첫 실행까지의 최단 경로.
 - `docs/ARCHITECTURE.md` — 모든 모듈이 지켜야 하는 계약.
 - `docs/decisions/` — 아키텍처 결정 기록.

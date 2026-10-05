@@ -1,6 +1,6 @@
 # Core concepts
 
-![The four-state verdict vocabulary](../../assets/verdicts.svg)
+![The four-state verdict vocabulary](../../assets/en/verdicts.svg)
 
 ## The four-state verdict vocabulary
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import re
 import shutil
 import socket
 import stat
@@ -108,6 +109,20 @@ class TestAxisPluginFiles(DoctorTestCase):
             self.assertIn("missing", result["detail"])
         else:
             self.assertEqual(result["verdict"], verdict.OK)
+
+    def test_gate_scripts_match_every_script_hooks_json_registers(self) -> None:
+        """Axis 1 checks the scripts the hooks actually run. compact.py was
+        registered without joining this list, so a missing compact.py went
+        unreported; hooks.json is the source, the tuple must follow it."""
+        hooks = json.loads((pathlib.Path(doctor.__file__).resolve().parents[1]
+                            / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+        registered = set()
+        for entries in hooks["hooks"].values():
+            for entry in entries:
+                for hook in entry["hooks"]:
+                    registered.update(re.findall(r"gates/(\w+\.py)", hook["command"]))
+        self.assertTrue(registered)
+        self.assertEqual(set(doctor.GATE_SCRIPTS), registered)
 
     def test_missing_gate_script_fails_axis_1(self) -> None:
         fake_plugin = self.root / "fakeplugin"

@@ -59,7 +59,9 @@ place of `command` and receives the full event on stdin.
    written.
 2. **`hosts.hook_script` reads the script from either form**, so doctor's
    host-layer axis and the smoke tool judge `commandWindows` the same way.
-3. **The plugin's own `hooks/hooks.json` is not changed by this ADR.** It is
+3. **The plugin's own `hooks/hooks.json` is not changed by this ADR**
+   (superseded by ADR-0038, which observed both open facts and adds a
+   `commandWindows` there too). It is
    shared by Claude Code, which runs it through Git Bash on Windows and is
    unaffected, and by a Codex plugin install. Two facts needed for the
    latter are unobserved: how Codex exposes the plugin root to a PowerShell

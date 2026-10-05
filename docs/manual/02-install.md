@@ -119,7 +119,7 @@ codex plugin add gatekit@gatekit
 
 스킬은 `$gatekit-<이름>`으로 부른다. **플러그인 훅은 사용자가 신뢰하기 전까지 돌지 않는다.** Codex 데스크톱 앱은 지금 신뢰를 기록하지 못하므로(openai/codex#47283), 터미널에서 `codex` → `/hooks`로 gatekit 훅을 검토·신뢰한 뒤 새 세션을 연다. 신뢰는 훅 내용 단위라 업그레이드할 때마다 다시 한다. 그 전까지 doctor 8번 축이 `warn`을 낸다.
 
-**Windows의 Codex는 아래 호스트 층 방식을 쓴다.** Codex는 Windows에서 훅 명령을 PowerShell 5.1로 실행하는데, 플러그인 설치 경로가 이 환경에서 쓰기를 막는 것은 아직 관측하지 못했다(`unverified`, ADR-0034). `install --host codex`가 만드는 `.codex/hooks.json`에는 Windows용 `commandWindows`가 들어 있다. 훅 신뢰(`/hooks`)는 똑같이 필요하다. 신뢰하지 않은 훅을 Codex는 아무 메시지 없이 건너뛴다.
+**Windows의 Codex는 플러그인 방식과 아래 호스트 층 방식이 모두 동작한다.** Codex는 Windows에서 훅 명령을 PowerShell 5.1로 실행하는데, 플러그인의 `hooks/hooks.json`(ADR-0038)과 `install --host codex`가 만드는 `.codex/hooks.json`(ADR-0034) 모두 Windows용 `commandWindows`를 갖고 있다. 훅 신뢰(`/hooks`)는 똑같이 필요하다. 신뢰하지 않은 훅을 Codex는 아무 메시지 없이 건너뛴다.
 
 Windows에서 Codex를 처음부터 준비하는 순서는 이렇다.
 

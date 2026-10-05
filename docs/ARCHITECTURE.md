@@ -271,8 +271,12 @@ gives every hook a `commandWindows` (which Codex runs on Windows in place of
 `command`) built by `hosts.hook_command_windows`: the same probe order in
 PowerShell syntax — `python3`, then `python`, each probed with `*>$null`
 before it runs the gate, then `py -3`, and `exit 1` with a stderr line when
-none exists. The plugin's own hooks.json carries no `commandWindows` yet, so
-a Codex *plugin* install on Windows is `unverified` (ADR-0034 decision 3). `doctor`'s
+none exists. The plugin's own hooks.json carries a `commandWindows` on every
+hook as well (`hosts.plugin_hook_command_windows`, ADR-0038): the same chain
+with the script at `Join-Path` of `$env:PLUGIN_ROOT` (else
+`$env:CLAUDE_PLUGIN_ROOT`) and no `--host`, so a Codex *plugin* install runs
+the gates on Windows; Claude Code ignores the key and runs `command`
+(observed). `doctor`'s
 python axis warns when a placeholder is on PATH. `hookio` reads stdin and writes stdout as UTF-8
 through the binary buffers, whatever the console's locale encoding. The
 write and Bash gates read Git Bash's `/c/<dir>/…` as `C:/<dir>/…` on Windows

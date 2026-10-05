@@ -1,6 +1,6 @@
 # gatekit
 
-Status: 0.16.13 — early. License: MIT.
+Status: 0.16.14 — early. License: MIT.
 
 > **Name change ahead.** gatekit will be renamed **gatebound** after the
 > current study cohort ends. Nothing changes until then: your installation,
@@ -105,7 +105,7 @@ whatever is missing — Git, Python, Claude Code, Node.js LTS — fixes the user
 `PYTHONUTF8=1` and installs or updates gatekit (ADR-0033):
 
 ```powershell
-irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.13/install/install.ps1 | iex
+irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.14/install/install.ps1 | iex
 ```
 
 Then open a new PowerShell window, run `claude` in your project folder (it
@@ -117,7 +117,7 @@ to update. To see the plan without changing anything:
 (ADR-0033 decision 12):
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.13/install/install.ps1))) -WithCodex
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.14/install/install.ps1))) -WithCodex
 ```
 
 Its last row, `codex-hooks`, stays `warn` until you do two things in each
@@ -317,7 +317,7 @@ defaults.
 
 ## Status
 
-**0.16.13 — early.** The core gate/ledger/contract/approval kernel, worker
+**0.16.14 — early.** The core gate/ledger/contract/approval kernel, worker
 dispatch (host or a different-model worker), Codex evaluator support, and
 the CI enforcement tooling are all in place; expect rough edges. See
 `CHANGELOG.md` for what shipped and `docs/decisions/` for the architectural

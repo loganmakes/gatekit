@@ -4,6 +4,50 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.16.14 — 2026-10-05
+
+A Codex **plugin** install now runs the gates on Windows (ADR-0038), and
+the output language survives pasted terminal output and projects that have
+a spec but no state directory yet (ADR-0037). macOS and Linux get a
+three-line install in the docs.
+
+### Fixed
+
+- **A Codex plugin install ran no gate on Windows.** Only the generated
+  layer (`install --host codex`) carried the PowerShell form Codex runs
+  there. Every hook in `plugin/hooks/hooks.json` now has a `commandWindows`
+  that finds the gate under `$env:PLUGIN_ROOT` (else
+  `$env:CLAUDE_PLUGIN_ROOT`). Observed first with a diagnostic plugin:
+  Claude Code loads the key without complaint and runs `command`; Codex
+  0.160.0 runs `commandWindows` with both variables set. Then end to end:
+  this plugin installed into Codex, no `.codex/` layer, an `apply_patch`
+  and a shell `Set-Content` into `src/` denied before approval. Trust the
+  hooks in `/hooks` as before.
+- **Pasting terminal output switched a Korean session to English.** Claude
+  Code wraps a paste as `<pasted_content …>`; the prompt gate now leaves
+  those blocks out of language detection, so a paste-only message keeps the
+  session's language and the words around a paste decide.
+- **Gate denials were English in a Korean project with no state directory.**
+  The write, Bash and PowerShell gates now take a prompt-set language, else
+  the spec's (`01-prd.md`, `00-discovery.md`), else the stored one — the
+  order ADR-0026 gave the prompt gate.
+
+### Docs
+
+- README, README.ko and the manual: macOS and Linux install in three lines
+  (Claude Code's installer plus the two plugin commands), what they need,
+  and why they get no installer script; a gate check is asked for, since
+  the 2026-10-05 checks were Windows-only.
+- The Codex plugin route is no longer called `unverified` on Windows.
+  The installer pin moves to v0.16.14.
+
+### Known limits
+
+- The plugin route was verified with the hooks trusted for the run
+  (`--dangerously-bypass-hook-trust`), not yet with trust given in `/hooks`.
+- That the hook's `prompt` carries the `<pasted_content>` wrapper is
+  inferred from the session transcript; without it the paste fix is a no-op.
+
 ## 0.16.13 — 2026-10-05
 
 A gatekit project's gates no longer reach into unrelated projects with a

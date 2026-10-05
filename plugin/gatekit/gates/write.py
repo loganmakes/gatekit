@@ -488,9 +488,17 @@ def decide_path(root: pathlib.Path, raw_path: str, lang: str) -> Optional[Dict[s
 
 
 def session_lang(root: pathlib.Path, event: Dict[str, Any]) -> str:
-    """Read the session's output language, defaulting to English."""
+    """The language for this session's messages (ADR-0037, ADR-0026 order).
+
+    A language a prompt set wins; otherwise the spec's, since a project with
+    a spec but no state directory has no ledger yet; then the ledger's
+    stored value; English last."""
     try:
-        return ledger.Ledger.load(root, hookio.session_id(event)).output_lang
+        from gatekit import lang  # deferred: only a message needs it
+        led = ledger.Ledger.load(root, hookio.session_id(event))
+        if led.data.get("lang_source") == "prompt":
+            return led.output_lang
+        return lang.from_spec(root) or led.output_lang
     except Exception:  # noqa: BLE001 - language must never break the gate
         return "en"
 

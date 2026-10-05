@@ -72,6 +72,10 @@ _SKILL_PREFIX_RE = re.compile(r"^\s*\$%s-[a-z-]+\b" % _NAMES)
 #: never typed. A real prompt does not carry them.
 HARNESS_MARKERS = ("<task-notification>", "<agent-message", "[SYSTEM NOTIFICATION - NOT USER INPUT]")
 
+#: Claude Code wraps pasted text as ``<pasted_content id="…">`` …
+#: ``</pasted_content id="…">`` (ADR-0037); an unclosed block runs to the end.
+_PASTED_RE = re.compile(r"<pasted_content\b[^>]*>.*?(?:</pasted_content\b[^>]*>|\Z)", re.DOTALL)
+
 
 def language_signal(text: str) -> str:
     """The part of *text* that is the user's own words.
@@ -81,9 +85,12 @@ def language_signal(text: str) -> str:
     English. Only the ``<command-args>`` content is the user's language.
     A harness message (:data:`HARNESS_MARKERS`) holds none of the user's
     words: on the first host run each one flipped a Korean session to English.
+    A pasted block is someone else's text — terminal output, a document — so
+    only the words around it count (ADR-0037).
     """
     if any(marker in text for marker in HARNESS_MARKERS):
         return ""
+    text = _PASTED_RE.sub(" ", text)
     if "<command-name>" in text:
         match = _ARGS_RE.search(text)
         return match.group(1) if match else ""

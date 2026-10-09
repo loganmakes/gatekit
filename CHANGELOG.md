@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.16.17 — 2026-10-09
+
+The GitHub account that hosts this repository was renamed, so the address is
+now `loganmakes/gatekit`. No behaviour change.
+
+### Changed
+
+- Every install command, the installer, the README (en + ko), the manual
+  (ko + en), QUICKSTART, SECURITY, the issue templates and the fresh-clone
+  smoke test say `loganmakes/gatekit`; the installer pin moves to v0.16.17.
+  The old `LovelyPaul/gatekit` address redirects here, so an existing
+  marketplace entry keeps updating; the installer re-adds the marketplace
+  under the new name when it finds the old one.
+
 ## 0.16.16 — 2026-10-09
 
 gatekit stays here, at github.com/LovelyPaul/gatekit, for the current study

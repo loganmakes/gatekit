@@ -1,6 +1,6 @@
 # gatekit installer for Windows (ADR-0033).
 #
-#   irm https://raw.githubusercontent.com/gatebound/gatebound/<tag>/install/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/LovelyPaul/gatekit/<tag>/install/install.ps1 | iex
 #
 # Checks what is present and installs only what is missing: Git, Python 3.9+
 # (the Microsoft Store placeholder does not count), Claude Code, the user
@@ -344,12 +344,26 @@ $code = & {
     $hasGatekit = (Test-Path $installedJson) -and ((Get-Content $installedJson -Raw -Encoding UTF8) -match '"gatekit@gatekit"')
     $knownJson = Join-Path $PluginsDir "known_marketplaces.json"
     $hasMarket = (Test-Path $knownJson) -and ((Get-Content $knownJson -Raw -Encoding UTF8) -match '"gatekit"')
-    $steps = if ($hasGatekit) {
+    # A marketplace added from another GitHub repo (gatebound/gatebound now hosts
+    # gatebound, not gatekit) is re-added from here. Removing a marketplace also
+    # uninstalls its plugins, so the plugin is installed again, not updated.
+    $marketRepo = ""
+    if ($hasMarket) {
+        try {
+            $known = Get-Content $knownJson -Raw -Encoding UTF8 | ConvertFrom-Json
+            $src = $known.PSObject.Properties["gatekit"].Value.source
+            if ($src.source -eq "github") { $marketRepo = [string]$src.repo }
+        } catch { }
+    }
+    $steps = if ($marketRepo -and ($marketRepo -ne "LovelyPaul/gatekit")) {
+        @(@("plugin", "marketplace", "remove", "gatekit"), @("plugin", "marketplace", "add", "LovelyPaul/gatekit"),
+          @("plugin", "install", "gatekit@gatekit"))
+    } elseif ($hasGatekit) {
         @(@("plugin", "marketplace", "update", "gatekit"), @("plugin", "update", "gatekit@gatekit"))
     } elseif ($hasMarket) {
         @(@("plugin", "marketplace", "update", "gatekit"), @("plugin", "install", "gatekit@gatekit"))
     } else {
-        @(@("plugin", "marketplace", "add", "gatebound/gatebound"), @("plugin", "install", "gatekit@gatekit"))
+        @(@("plugin", "marketplace", "add", "LovelyPaul/gatekit"), @("plugin", "install", "gatekit@gatekit"))
     }
     $action = if ($hasGatekit) { "update" } else { "install" }
     $shown = ($steps | ForEach-Object { "claude " + ($_ -join " ") }) -join "; "

@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.16.16 — 2026-10-09
+
+gatekit stays here, at github.com/LovelyPaul/gatekit, for the current study
+cohort; new development continues as **gatebound** at
+github.com/gatebound/gatebound. No behaviour change.
+
+### Changed
+
+- The installer, README, README.ko, the manual (ko + en), QUICKSTART,
+  SECURITY, the issue templates and the fresh-clone smoke test point at
+  `LovelyPaul/gatekit`; the installer pin moves to v0.16.16. If you added the
+  marketplace as `gatebound/gatebound`, remove it and add
+  `LovelyPaul/gatekit` (`claude plugin marketplace remove gatekit`, then
+  `claude plugin marketplace add LovelyPaul/gatekit`), or run the installer
+  line again.
+
 ## 0.16.15 — 2026-10-05
 
 `jobs stop` ends a running worker on a slow Windows machine (ADR-0039),

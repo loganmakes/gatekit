@@ -1,14 +1,14 @@
 # gatekit
 
-상태: 0.16.15 — 초기 단계. 라이선스: MIT.
+상태: 0.16.16 — 초기 단계. 라이선스: MIT.
 
-> **이름이 바뀔 예정입니다.** gatekit은 이번 스터디가 끝나면 **gatebound**로
-> 이름이 바뀝니다. 그때까지는 달라지는 것이 없습니다. 지금 설치,
-> `/gatekit:` 명령어, 프로젝트의 `spec/`과 `.gatekit/`은 그대로 동작합니다.
-> 저장소는 이미 [gatebound/gatebound](https://github.com/gatebound/gatebound)로
-> 옮겼고, 예전 주소 `LovelyPaul/gatekit`은 이곳으로 자동 연결됩니다.
-> 프로젝트 사이트는 [gatebound.dev](https://gatebound.dev)입니다.
-> 옮기는 방법은 이름 변경과 함께 안내합니다.
+> **gatekit은 gatebound로 이어집니다.** 이 저장소는 이번 스터디 기간 동안
+> gatekit 0.16.x를 그대로 유지합니다. 지금 설치, `/gatekit:` 명령어,
+> 프로젝트의 `spec/`과 `.gatekit/`은 그대로 동작하고, 스터디가 끝날 때까지
+> 수정 사항도 여기에 반영됩니다. 새 개발은
+> [gatebound/gatebound](https://github.com/gatebound/gatebound)
+> ([gatebound.dev](https://gatebound.dev))에서 이어지며, gatebound는 gatekit
+> 프로젝트를 그대로 읽습니다.
 
 gatekit은 [Claude Code](https://claude.com/claude-code)에서 AI 보조 개발을
 게이트(hook)로 강제하는 하네스입니다. `CLAUDE.md`나 슬래시 커맨드에 적어두는
@@ -65,7 +65,7 @@ gatekit은 [Claude Code](https://claude.com/claude-code)에서 AI 보조 개발�
 ## 설치
 
 ```
-/plugin marketplace add https://github.com/gatebound/gatebound
+/plugin marketplace add https://github.com/LovelyPaul/gatekit
 /plugin install gatekit@gatekit
 ```
 
@@ -76,7 +76,7 @@ gatekit은 [Claude Code](https://claude.com/claude-code)에서 AI 보조 개발�
 
 ```bash
 curl -fsSL https://claude.ai/install.sh | bash
-claude plugin marketplace add gatebound/gatebound
+claude plugin marketplace add LovelyPaul/gatekit
 claude plugin install gatekit@gatekit
 ```
 
@@ -102,7 +102,7 @@ Windows 문제(가짜 Python, 갱신 안 된 PATH, cp949, PowerShell로 실행�
 고치고, `PYTHONUTF8=1`을 설정한 뒤 gatekit을 설치하거나 업데이트합니다(ADR-0033).
 
 ```powershell
-irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.15/install/install.ps1 | iex
+irm https://raw.githubusercontent.com/LovelyPaul/gatekit/v0.16.16/install/install.ps1 | iex
 ```
 
 그다음 PowerShell을 새로 열고, 프로젝트 폴더에서 `claude`를 실행해(처음이면
@@ -114,7 +114,7 @@ irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.15/install/insta
 설치합니다(ADR-0033 결정 12).
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.15/install/install.ps1))) -WithCodex
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/LovelyPaul/gatekit/v0.16.16/install/install.ps1))) -WithCodex
 ```
 
 마지막 `codex-hooks` 줄은 Codex를 쓰는 프로젝트마다 두 가지를 하기 전까지
@@ -125,7 +125,7 @@ gatekit 훅마다 `t`를 누른 뒤 새 세션을 여세요. gatekit을 업데�
 
 **Claude 데스크톱 앱.** 앱에서도 플러그인이 동작하고, 훅도 CLI와 똑같이
 실행됩니다. **+ → Plugins → Add plugin**을 눌러 마켓플레이스
-`https://github.com/gatebound/gatebound`를 추가하고 `gatekit`을 설치한 뒤,
+`https://github.com/LovelyPaul/gatekit`를 추가하고 `gatekit`을 설치한 뒤,
 *자기 프로젝트 폴더*를 여십시오. 터미널에서 사용자 범위로 설치한 플러그인은
 앱에서도 그대로 보이고, 그 반대도 같습니다. gatekit 저장소 자체를 앱의
 프로젝트로 여는 것은 설치가 아닙니다 — 모델이 커맨드 파일을 읽을 수는 있지만
@@ -145,7 +145,7 @@ Codex도 같은 마켓플레이스에서 같은 플러그인을 설치합니다.
 (ADR-0034, ADR-0038).
 
 ```
-codex plugin marketplace add gatebound/gatebound
+codex plugin marketplace add LovelyPaul/gatekit
 codex plugin add gatekit@gatekit
 ```
 
@@ -160,7 +160,7 @@ gatekit 훅을 검토·신뢰한 뒤, 앱이나 CLI에서 새 세션을 시작�
 예전 방식(생성된 호스트 층)으로 설정한 프로젝트는 그대로 동작합니다.
 
 ```
-git clone https://github.com/gatebound/gatebound
+git clone https://github.com/LovelyPaul/gatekit
 python3 "gatebound/plugin/bin/gatekit.py" install --host codex
 ```
 
@@ -309,7 +309,7 @@ spec/
 
 ## 상태
 
-**0.16.15 — 초기 단계.** 게이트/원장/계약/승인 커널, 워커 실행(호스트
+**0.16.16 — 초기 단계.** 게이트/원장/계약/승인 커널, 워커 실행(호스트
 세션 또는 다른 모델의 워커), Codex 평가자 지원, CI 강제 도구가 모두
 갖춰져 있으나, 아직 거친 부분이 있을 수 있습니다. 무엇이 출시되었는지는
 `CHANGELOG.md`를, 현재 구조의 배경이 된 아키텍처 결정은

@@ -11,7 +11,7 @@ gatekit will be renamed **gatebound** once the current study cohort ends
 `gatekit`.
 
 Want to influence the order? Open a thread in
-[Discussions](https://github.com/gatebound/gatebound/discussions) or a
+[Discussions](https://github.com/LovelyPaul/gatekit/discussions) or a
 feature request.
 
 ## Now — during the study

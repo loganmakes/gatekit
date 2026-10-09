@@ -1,15 +1,13 @@
 # gatekit
 
-Status: 0.16.15 — early. License: MIT.
+Status: 0.16.16 — early. License: MIT.
 
-> **Name change ahead.** gatekit will be renamed **gatebound** after the
-> current study cohort ends. Nothing changes until then: your installation,
-> the `/gatekit:` commands and your projects' `spec/` and `.gatekit/` keep
-> working. The repository has already moved to
-> [gatebound/gatebound](https://github.com/gatebound/gatebound); the old
-> `LovelyPaul/gatekit` URL redirects here, and the project site is
-> [gatebound.dev](https://gatebound.dev). A migration guide will ship with
-> the rename.
+> **gatekit continues as gatebound.** This repository keeps gatekit 0.16.x
+> working for the current study cohort: your installation, the `/gatekit:`
+> commands and your projects' `spec/` and `.gatekit/` keep working, and fixes
+> land here until the cohort ends. New development happens in
+> [gatebound/gatebound](https://github.com/gatebound/gatebound)
+> ([gatebound.dev](https://gatebound.dev)), which reads gatekit projects.
 
 gatekit is a gate-enforced harness for AI-assisted development in
 [Claude Code](https://claude.com/claude-code). It turns the usual prose
@@ -70,7 +68,7 @@ that matter into things a hook enforces:
 ## Install
 
 ```
-/plugin marketplace add https://github.com/gatebound/gatebound
+/plugin marketplace add https://github.com/LovelyPaul/gatekit
 /plugin install gatekit@gatekit
 ```
 
@@ -81,7 +79,7 @@ are picked up.
 
 ```bash
 curl -fsSL https://claude.ai/install.sh | bash
-claude plugin marketplace add gatebound/gatebound
+claude plugin marketplace add LovelyPaul/gatekit
 claude plugin install gatekit@gatekit
 ```
 
@@ -108,7 +106,7 @@ whatever is missing — Git, Python, Claude Code, Node.js LTS — fixes the user
 `PYTHONUTF8=1` and installs or updates gatekit (ADR-0033):
 
 ```powershell
-irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.15/install/install.ps1 | iex
+irm https://raw.githubusercontent.com/LovelyPaul/gatekit/v0.16.16/install/install.ps1 | iex
 ```
 
 Then open a new PowerShell window, run `claude` in your project folder (it
@@ -120,7 +118,7 @@ to update. To see the plan without changing anything:
 (ADR-0033 decision 12):
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.15/install/install.ps1))) -WithCodex
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/LovelyPaul/gatekit/v0.16.16/install/install.ps1))) -WithCodex
 ```
 
 Its last row, `codex-hooks`, stays `warn` until you do two things in each
@@ -131,7 +129,7 @@ session. Repeat both after each gatekit update.
 
 **Claude desktop app.** Plugins work there too, and hooks run as in the CLI:
 click **+ → Plugins → Add plugin**, add the marketplace
-`https://github.com/gatebound/gatebound`, install `gatekit`, then open *your
+`https://github.com/LovelyPaul/gatekit`, install `gatekit`, then open *your
 own project folder*. A plugin installed at user scope in the terminal is
 already available in the app, and the other way round. Opening the gatekit
 repository itself as the app's project is not an install: the model can read
@@ -150,7 +148,7 @@ this plugin route and the project layer below work: Codex runs hooks in
 PowerShell there, and both carry the PowerShell form (ADR-0034, ADR-0038).
 
 ```
-codex plugin marketplace add gatebound/gatebound
+codex plugin marketplace add LovelyPaul/gatekit
 codex plugin add gatekit@gatekit
 ```
 
@@ -165,7 +163,7 @@ upgrade. `$gatekit-doctor` reports the plugin's hooks as `warn` until then.
 Projects set up with the older generated layer keep working:
 
 ```
-git clone https://github.com/gatebound/gatebound
+git clone https://github.com/LovelyPaul/gatekit
 python3 "gatebound/plugin/bin/gatekit.py" install --host codex
 ```
 
@@ -320,7 +318,7 @@ defaults.
 
 ## Status
 
-**0.16.15 — early.** The core gate/ledger/contract/approval kernel, worker
+**0.16.16 — early.** The core gate/ledger/contract/approval kernel, worker
 dispatch (host or a different-model worker), Codex evaluator support, and
 the CI enforcement tooling are all in place; expect rough edges. See
 `CHANGELOG.md` for what shipped and `docs/decisions/` for the architectural

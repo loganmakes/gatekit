@@ -17,7 +17,7 @@ gatekit 커널은 파이썬 표준 라이브러리만 쓴다. `pip install`이 �
 Windows PC에는 gatekit이 전제하는 것이 하나도 깔려 있지 않다. Claude Code도, Git도, 파이썬도 없고, `python`이라고 치면 Microsoft Store 안내용 자리표시자가 `Python`이라는 글자만 찍고 끝난다. **PowerShell**(관리자 권한 아님)에서 한 줄이면 된다(ADR-0033). 관리자로 연 창이면 설치 스크립트가 멈추고 다시 열라고 안내한다.
 
 ```powershell
-irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.15/install/install.ps1 | iex
+irm https://raw.githubusercontent.com/LovelyPaul/gatekit/v0.16.16/install/install.ps1 | iex
 ```
 
 스크립트는 이미 있는 것은 건너뛰고 없는 것만 설치한다. Git, 진짜 파이썬 3.9 이상(Store 자리표시자는 치지 않는다), Claude Code, Node.js LTS를 `winget`과 공식 설치기로 깔고, 사용자 PATH를 고친다(자리표시자보다 앞에 진짜 파이썬, `.local\bin` 추가). 지금 창의 PATH를 새로 읽고, `PYTHONUTF8=1`을 설정한 뒤 플러그인을 설치하거나 업데이트한다. 끝에 항목마다 `ok`/`warn`/`fail`/`unverified`가 나온다. 시스템 PATH와 관리자 권한은 건드리지 않고, 다시 실행해도 안전하다. 업데이트도 같은 줄이다.
@@ -25,7 +25,7 @@ irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.15/install/insta
 그다음 PowerShell을 새로 열고 프로젝트 폴더에서 `claude`를 실행해 로그인한 뒤 `/gatekit:doctor`를 돌린다. 바꾸지 않고 계획만 보려면 `& ([scriptblock]::Create((irm <url>))) -DryRun`. Node.js는 따로 붙이지 않아도 없으면 설치한다(예전 안내의 `-WithNode`는 붙여도 무방하다, ADR-0033 결정 13). Codex도 쓰려면 아래 한 줄을 쓴다.
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.15/install/install.ps1))) -WithCodex
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/LovelyPaul/gatekit/v0.16.16/install/install.ps1))) -WithCodex
 ```
 
 Codex CLI를 `npm.cmd`로 설치하고, 마지막 `codex-hooks` 줄이 프로젝트마다 남은 두 단계(`install --host codex`, `/hooks`에서 신뢰)를 `warn`으로 알려 준다. Codex 플러그인(`codex plugin add`)은 설치하지 않는다(ADR-0033 결정 12).
@@ -65,7 +65,7 @@ Codex CLI를 `npm.cmd`로 설치하고, 마지막 `codex-hooks` 줄이 프로젝
 4. 플러그인을 설치한다.
 
    ```powershell
-   claude plugin marketplace add https://github.com/gatebound/gatebound
+   claude plugin marketplace add https://github.com/LovelyPaul/gatekit
    claude plugin install gatekit@gatekit
    ```
 
@@ -87,7 +87,7 @@ Codex CLI를 `npm.cmd`로 설치하고, 마지막 `codex-hooks` 줄이 프로젝
 
 ```bash
 curl -fsSL https://claude.ai/install.sh | bash
-claude plugin marketplace add gatebound/gatebound
+claude plugin marketplace add LovelyPaul/gatekit
 claude plugin install gatekit@gatekit
 ```
 
@@ -102,7 +102,7 @@ Windows에 설치 스크립트가 필요했던 이유(Store 자리표시자 Pyth
 ## 설치
 
 ```bash
-/plugin marketplace add https://github.com/gatebound/gatebound
+/plugin marketplace add https://github.com/LovelyPaul/gatekit
 /plugin install gatekit@gatekit
 ```
 
@@ -110,14 +110,14 @@ Windows에 설치 스크립트가 필요했던 이유(Store 자리표시자 Pyth
 
 ### Claude 데스크톱 앱 사용자
 
-앱에서도 플러그인과 훅이 CLI와 똑같이 동작한다. **+ → Plugins → Add plugin**에서 마켓플레이스 `https://github.com/gatebound/gatebound`를 추가하고 `gatekit`을 설치한 뒤 **자기 프로젝트 폴더**를 연다. 터미널에서 사용자 범위로 설치했다면 앱에도 이미 있다. gatekit 저장소 폴더 자체를 앱으로 여는 것은 설치가 아니다 — 모델이 커맨드 파일을 읽어 흉내는 내지만 훅이 등록되지 않아 게이트가 하나도 돌지 않는다.
+앱에서도 플러그인과 훅이 CLI와 똑같이 동작한다. **+ → Plugins → Add plugin**에서 마켓플레이스 `https://github.com/LovelyPaul/gatekit`를 추가하고 `gatekit`을 설치한 뒤 **자기 프로젝트 폴더**를 연다. 터미널에서 사용자 범위로 설치했다면 앱에도 이미 있다. gatekit 저장소 폴더 자체를 앱으로 여는 것은 설치가 아니다 — 모델이 커맨드 파일을 읽어 흉내는 내지만 훅이 등록되지 않아 게이트가 하나도 돌지 않는다.
 
 ### Codex 사용자 (앱·CLI)
 
 Codex도 같은 마켓플레이스에서 같은 플러그인을 설치한다.
 
 ```bash
-codex plugin marketplace add gatebound/gatebound
+codex plugin marketplace add LovelyPaul/gatekit
 codex plugin add gatekit@gatekit
 ```
 
@@ -136,7 +136,7 @@ Windows에서 Codex를 처음부터 준비하는 순서는 이렇다.
 예전 방식(프로젝트마다 호스트 층 생성)도 계속 동작한다.
 
 ```bash
-git clone https://github.com/gatebound/gatebound
+git clone https://github.com/LovelyPaul/gatekit
 python3 "gatebound/plugin/bin/gatekit.py" install --host codex
 ```
 

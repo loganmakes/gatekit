@@ -17,7 +17,7 @@ The gatekit kernel uses only the Python standard library. No `pip install` is ne
 A Windows PC has none of what gatekit assumes. No Claude Code, no Git, no Python, and typing `python` runs a Microsoft Store placeholder that prints only the word `Python` and exits. One line in **PowerShell** (not as administrator) does it (ADR-0033). If the window was opened as administrator, the install script stops and tells you to reopen it.
 
 ```powershell
-irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.15/install/install.ps1 | iex
+irm https://raw.githubusercontent.com/LovelyPaul/gatekit/v0.16.16/install/install.ps1 | iex
 ```
 
 The script skips what is already there and installs only what is missing. It installs Git, a real Python 3.9 or newer (the Store placeholder does not count), Claude Code, and Node.js LTS with `winget` and the official installers, and fixes the user PATH (real Python ahead of the placeholder, `.local\bin` added). It reloads the current window's PATH, sets `PYTHONUTF8=1`, then installs or updates the plugin. At the end, each item shows `ok`/`warn`/`fail`/`unverified`. It does not touch the system PATH or administrator rights, and it is safe to run again. Updating is the same line.
@@ -25,7 +25,7 @@ The script skips what is already there and installs only what is missing. It ins
 Next, open a new PowerShell window, run `claude` in your project folder, log in, then run `/gatekit:doctor`. To see the plan without changing anything: `& ([scriptblock]::Create((irm <url>))) -DryRun`. Node.js is installed if missing without any extra flag (the `-WithNode` from earlier instructions is harmless if you add it, ADR-0033 decision 13). To use Codex too, use the line below.
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/gatebound/gatebound/v0.16.15/install/install.ps1))) -WithCodex
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/LovelyPaul/gatekit/v0.16.16/install/install.ps1))) -WithCodex
 ```
 
 It installs the Codex CLI with `npm.cmd`, and the last row, `codex-hooks`, reports as `warn` the two steps left for each project (`install --host codex`, and trusting the hooks in `/hooks`). It does not install the Codex plugin (`codex plugin add`) (ADR-0033 decision 12).
@@ -65,7 +65,7 @@ If you are on an old Windows without `winget`, or script execution is blocked, f
 4. Install the plugin.
 
    ```powershell
-   claude plugin marketplace add https://github.com/gatebound/gatebound
+   claude plugin marketplace add https://github.com/LovelyPaul/gatekit
    claude plugin install gatekit@gatekit
    ```
 
@@ -87,7 +87,7 @@ No install script is needed: three lines in a terminal do it.
 
 ```bash
 curl -fsSL https://claude.ai/install.sh | bash
-claude plugin marketplace add gatebound/gatebound
+claude plugin marketplace add LovelyPaul/gatekit
 claude plugin install gatekit@gatekit
 ```
 
@@ -102,7 +102,7 @@ The reasons Windows needed an install script (the Store placeholder Python, PATH
 ## Install
 
 ```bash
-/plugin marketplace add https://github.com/gatebound/gatebound
+/plugin marketplace add https://github.com/LovelyPaul/gatekit
 /plugin install gatekit@gatekit
 ```
 
@@ -110,14 +110,14 @@ After installing, you must **restart Claude Code** for the hooks in `plugin/hook
 
 ### Claude desktop app users
 
-In the app, plugins and hooks work exactly as in the CLI. In **+ → Plugins → Add plugin**, add the marketplace `https://github.com/gatebound/gatebound`, install `gatekit`, then open **your own project folder**. If you installed at user scope in the terminal, it is already in the app. Opening the gatekit repository folder itself in the app is not an install — the model reads the command files and imitates them, but no hook is registered, so not a single gate runs.
+In the app, plugins and hooks work exactly as in the CLI. In **+ → Plugins → Add plugin**, add the marketplace `https://github.com/LovelyPaul/gatekit`, install `gatekit`, then open **your own project folder**. If you installed at user scope in the terminal, it is already in the app. Opening the gatekit repository folder itself in the app is not an install — the model reads the command files and imitates them, but no hook is registered, so not a single gate runs.
 
 ### Codex users (app and CLI)
 
 Codex installs the same plugin from the same marketplace.
 
 ```bash
-codex plugin marketplace add gatebound/gatebound
+codex plugin marketplace add LovelyPaul/gatekit
 codex plugin add gatekit@gatekit
 ```
 
@@ -136,7 +136,7 @@ To set up Codex on Windows from scratch, follow these steps.
 The older route (creating a host layer per project) still works.
 
 ```bash
-git clone https://github.com/gatebound/gatebound
+git clone https://github.com/LovelyPaul/gatekit
 python3 "gatebound/plugin/bin/gatekit.py" install --host codex
 ```
 

@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "branch or tag of gatebound/gatebound to clone and test"
+        description: "branch or tag of LovelyPaul/gatekit to clone and test"
         default: "main"
         required: true
 

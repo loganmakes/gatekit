@@ -887,6 +887,34 @@ class TestInstallerPlan(unittest.TestCase):
         self.assertEqual(self.rows(data, "path"), [])
         self.assertEqual(self.row(data, "gatekit")["action"], "update")
 
+    def known_marketplace(self, source: dict) -> None:
+        plugins = self.home / ".claude" / "plugins"
+        plugins.mkdir(parents=True, exist_ok=True)
+        (plugins / "known_marketplaces.json").write_text(json.dumps(
+            {"gatekit": {"source": source, "installLocation": "x"}}), encoding="utf-8")
+
+    def gatekit_steps(self, source: dict) -> str:
+        self.real_python(); self.git(); self.claude(); self.gatekit_installed()
+        self.known_marketplace(source)
+        _, data = self.plan([self.realpy, self.windowsapps, self.gitdir, self.localbin, self.wingetdir,
+                             self.node()], env={"GATEKIT_INSTALL_USER_PYTHONUTF8": "1"})
+        return self.row(data, "gatekit")["detail"]
+
+    def test_a_marketplace_added_from_another_repo_is_re_added_from_lovelypaul_gatekit(self) -> None:
+        # gatebound/gatebound now hosts gatebound, not gatekit: updating from it would break.
+        detail = self.gatekit_steps({"source": "github", "repo": "gatebound/gatebound"})
+        self.assertIn("claude plugin marketplace remove gatekit", detail)
+        self.assertIn("claude plugin marketplace add LovelyPaul/gatekit", detail)
+
+    def test_a_marketplace_already_on_lovelypaul_gatekit_is_only_updated(self) -> None:
+        detail = self.gatekit_steps({"source": "github", "repo": "LovelyPaul/gatekit"})
+        self.assertIn("claude plugin marketplace update gatekit", detail)
+        self.assertNotIn("marketplace remove", detail)
+
+    def test_a_directory_marketplace_is_left_alone(self) -> None:
+        detail = self.gatekit_steps({"source": "directory", "path": "C:/dev/gatekit"})
+        self.assertNotIn("marketplace remove", detail)
+
     def test_a_user_pythonutf8_is_left_alone(self) -> None:
         _, data = self.plan([self.windowsapps, self.wingetdir], env={"GATEKIT_INSTALL_USER_PYTHONUTF8": "0"})
         self.assertEqual(self.row(data, "pythonutf8")["action"], "skip")

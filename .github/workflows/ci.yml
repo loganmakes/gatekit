@@ -3,6 +3,9 @@ name: ci
 on:
   push:
   pull_request:
+  # Manual runs: push events stopped creating runs in this repository
+  # (GitHub Support ticket open, 2026-10-09).
+  workflow_dispatch:
 
 jobs:
   gates:

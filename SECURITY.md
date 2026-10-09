@@ -61,7 +61,7 @@ rather than opening a public issue.
 
 Use GitHub's private vulnerability reporting: go to the repository's
 **Security** tab and click **Report a vulnerability**
-([direct link](https://github.com/LovelyPaul/gatekit/security/advisories/new)).
+([direct link](https://github.com/loganmakes/gatekit/security/advisories/new)).
 That keeps the report visible only to the maintainer until a fix ships. If
 you can't use GitHub, email security@gatebound.dev instead.
 

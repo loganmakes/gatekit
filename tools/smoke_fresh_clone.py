@@ -33,7 +33,7 @@ import tempfile
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-DEFAULT_REPO = "https://github.com/LovelyPaul/gatekit.git"
+DEFAULT_REPO = "https://github.com/loganmakes/gatekit.git"
 #: Korean folder name plus a space: the shape that tripped a Windows participant.
 PROJECT_REL = pathlib.Path("문서 테스트") / "my app"
 SESSION = "smoke-fresh-clone"

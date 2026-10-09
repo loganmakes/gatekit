@@ -904,10 +904,10 @@ class TestInstallerPlan(unittest.TestCase):
         # gatebound/gatebound now hosts gatebound, not gatekit: updating from it would break.
         detail = self.gatekit_steps({"source": "github", "repo": "gatebound/gatebound"})
         self.assertIn("claude plugin marketplace remove gatekit", detail)
-        self.assertIn("claude plugin marketplace add LovelyPaul/gatekit", detail)
+        self.assertIn("claude plugin marketplace add loganmakes/gatekit", detail)
 
     def test_a_marketplace_already_on_lovelypaul_gatekit_is_only_updated(self) -> None:
-        detail = self.gatekit_steps({"source": "github", "repo": "LovelyPaul/gatekit"})
+        detail = self.gatekit_steps({"source": "github", "repo": "loganmakes/gatekit"})
         self.assertIn("claude plugin marketplace update gatekit", detail)
         self.assertNotIn("marketplace remove", detail)
 
